@@ -15,7 +15,7 @@ Tested on: Brave desktop, Meta Quest 2.
 | | |
 |---|---|
 | ![Tabletop view 1](https://hcilab.no/geoboardxr/promo/tabletop1.png) | ![Tabletop view 2](https://hcilab.no/geoboardxr/promo/tabletop2.png) |
-| ![Overview 1](https://hcilab.no/geoboardxr/promo/overview1.png) | ![Overview 2](https://hcilab.no/geoboardxr/promo/overview2.png) |
+| ![Overview 1](https://hcilab.no/geoboardxr/promo/overview1.png?v=2) | ![Overview 2](https://hcilab.no/geoboardxr/promo/overview2.png) |
 | ![Navigation](https://hcilab.no/geoboardxr/promo/navigation.png) | ![Animation](https://hcilab.no/geoboardxr/promo/animation.png) |
 | ![3D model icon](https://hcilab.no/geoboardxr/promo/3dmodelicon.png) | |
 
