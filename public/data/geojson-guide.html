@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoJSON Data Guide — VR Tabletop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    color: #1a1a2e;
+    background: #f5f6fa;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .page { max-width: 820px; margin: 0 auto; }
+
+  h1 { font-size: 2rem; font-weight: 700; color: #11112a; margin-bottom: .25rem; }
+  .subtitle { color: #555; margin-bottom: 2.5rem; font-size: .95rem; }
+
+  h2 {
+    font-size: 1.2rem; font-weight: 700; margin: 2.5rem 0 .75rem;
+    padding: .5rem .9rem; border-radius: 6px; color: #fff;
+  }
+  h2.point   { background: #e67e22; }
+  h2.polygon { background: #27ae60; }
+  h2.line    { background: #2980b9; }
+  h2.general { background: #8e44ad; }
+
+  h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 .4rem; color: #11112a; }
+
+  p  { margin-bottom: .75rem; color: #333; }
+
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: .5rem 0 1.25rem; font-size: .875rem;
+  }
+  th {
+    text-align: left; padding: .5rem .75rem;
+    background: #dde0ef; color: #11112a; font-weight: 600;
+  }
+  td { padding: .45rem .75rem; border-bottom: 1px solid #e0e3f0; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #f0f1f8; }
+
+  code {
+    font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: .82em;
+    background: #e8eaf6; color: #333; padding: .1em .35em; border-radius: 3px;
+  }
+
+  pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    font-size: .82rem;
+    line-height: 1.6;
+    margin: .75rem 0 1.5rem;
+    font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  }
+
+  .kw  { color: #cba6f7; }   /* keywords / booleans */
+  .str { color: #a6e3a1; }   /* strings */
+  .num { color: #fab387; }   /* numbers */
+  .key { color: #89dceb; }   /* property keys */
+  .cmt { color: #6c7086; font-style: italic; }   /* comments */
+
+  .tag {
+    display: inline-block; font-size: .7rem; font-weight: 700;
+    padding: .1em .5em; border-radius: 3px; vertical-align: middle;
+    margin-left: .3em;
+  }
+  .req  { background: #fde8e8; color: #c0392b; }
+  .opt  { background: #eaf5ea; color: #1e8449; }
+  .def  { background: #eaf0fb; color: #1a5276; }
+
+  .note {
+    background: #fff8e1; border-left: 4px solid #f39c12;
+    padding: .65rem 1rem; border-radius: 0 6px 6px 0;
+    margin: 1rem 0; font-size: .875rem; color: #5d4037;
+  }
+
+  .divider { border: none; border-top: 2px solid #dde0ef; margin: 3rem 0 2rem; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>GeoJSON Data Guide</h1>
+  <p class="subtitle">
+    How to structure <code>.geojson</code> files for the VR Tabletop viewer.<br>
+    Place any <code>.geojson</code> file in <code>public/data/</code> — it will appear automatically as a toggle button.
+  </p>
+
+  <!-- ------------------------------------------------------------------ GENERAL -->
+  <h2 class="general">File structure</h2>
+
+  <p>Every file must be a valid GeoJSON <strong>FeatureCollection</strong>. A single file can mix Points, Polygons, and LineStrings freely.</p>
+
+  <pre><span class="cmt">// public/data/my-layer.geojson</span>
+{
+  <span class="key">"type"</span>: <span class="str">"FeatureCollection"</span>,
+  <span class="key">"name"</span>: <span class="str">"My Layer"</span>,   <span class="cmt">// optional — becomes the toggle button label</span>
+  <span class="key">"features"</span>: [
+    <span class="cmt">// ... one or more Feature objects</span>
+  ]
+}</pre>
+
+  <p>The optional top-level <code>"name"</code> field becomes the toggle button label. If omitted, the filename (without <code>.geojson</code>) is used instead. Restart the dev server after adding a new file.</p>
+
+  <hr class="divider">
+
+  <!-- ------------------------------------------------------------------ POINT -->
+  <h2 class="point">Point — pins &amp; info markers</h2>
+
+  <p>Renders as a vertical stick with a sphere head. Clicking a pin with <code>information</code> opens text (and optionally an image) on the projection walls. Only one pin can be selected at a time — the selected pin turns <strong>grayish-white</strong> while its info is displayed; clicking it again or selecting another pin restores its original colour.</p>
+  <div class="note">ℹ️ <strong>Infopoint default colour:</strong> Pins that have an <code>information</code> property default to <strong style="color:#23d110">#23d110</strong> (green) if no explicit <code>color</code> is set, so they stand out from plain yellow pins at a glance.</div>
+
+  <h3>Geometry</h3>
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: {
+    <span class="key">"type"</span>: <span class="str">"Point"</span>,
+    <span class="key">"coordinates"</span>: [<span class="num">15.4147</span>, <span class="num">68.6944</span>]   <span class="cmt">// [longitude, latitude]</span>
+  },
+  <span class="key">"properties"</span>: { <span class="cmt">/* see table below */</span> }
+}</pre>
+
+  <h3>Properties</h3>
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr>
+      <td><code>title</code> <span class="tag opt">optional</span></td>
+      <td>string</td>
+      <td>—</td>
+      <td>Label displayed above the pin head.</td>
+    </tr>
+    <tr>
+      <td><code>color</code> <span class="tag opt">optional</span></td>
+      <td>hex string</td>
+      <td><code style="color:#23d110">#23d110</code> if <code>information</code> is set, <code>#ffe600</code> otherwise</td>
+      <td>Stick and head colour. Any CSS hex colour, e.g. <code>"#ff4400"</code>. Infopoints turn grayish-white when selected.</td>
+    </tr>
+    <tr>
+      <td><code>information</code> <span class="tag opt">optional</span></td>
+      <td>string</td>
+      <td>—</td>
+      <td>Body text shown on the projection walls when the pin is clicked. Enables the click interaction. Newlines (<code>\n</code>) are supported.</td>
+    </tr>
+    <tr>
+      <td><code>image</code> <span class="tag opt">optional</span></td>
+      <td>string (URL or filename)</td>
+      <td>—</td>
+      <td>Image shown alongside the information text. Only valid when <code>information</code> is also set. Use a filename (e.g. <code>"photo.jpg"</code>) for files placed next to the GeoJSON in <code>public/data/</code>, or a full URL for remote images.</td>
+    </tr>
+    <tr>
+      <td><code>3dmodel</code> <span class="tag opt">optional</span></td>
+      <td>string (filename)</td>
+      <td>—</td>
+      <td>Filename of a <code>.glb</code> file placed in <code>public/data/</code> (e.g. <code>"tree.glb"</code>). Replaces the default stick+sphere with the 3-D model, scaled to fit pin height automatically. A click target is still present for interaction.</td>
+    </tr>
+  </table>
+
+  <h3>Examples</h3>
+  <pre><span class="cmt">// Simple labelled pin</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.42</span>, <span class="num">68.70</span>] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Measurement station"</span>,
+    <span class="key">"color"</span>: <span class="str">"#00aaff"</span>
+  }
+}
+
+<span class="cmt">// Information pin with local image</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.39</span>, <span class="num">68.69</span>] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Research site"</span>,
+    <span class="key">"color"</span>: <span class="str">"#ff5500"</span>,
+    <span class="key">"information"</span>: <span class="str">"Water temperature: 8 °C\nDepth: 42 m"</span>,
+    <span class="key">"image"</span>: <span class="str">"site_photo.jpg"</span>
+  }
+}
+
+<span class="cmt">// 3-D model pin</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.43</span>, <span class="num">68.71</span>] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Buoy"</span>,
+    <span class="key">"3d_model"</span>: <span class="str">"https://example.com/models/buoy.glb"</span>,
+    <span class="key">"information"</span>: <span class="str">"Oceanographic buoy #12"</span>
+  }
+}</pre>
+
+  <hr class="divider">
+
+  <!-- ------------------------------------------------------------------ POLYGON -->
+  <h2 class="polygon">Polygon — areas &amp; zones</h2>
+
+  <p>Renders a flat filled area at terrain elevation. Supports plain colour, fire particle animation, and 3-D wave animation.</p>
+
+  <h3>Geometry</h3>
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: {
+    <span class="key">"type"</span>: <span class="str">"Polygon"</span>,
+    <span class="key">"coordinates"</span>: [[     <span class="cmt">// outer ring — close it by repeating the first point</span>
+      [<span class="num">15.397</span>, <span class="num">68.687</span>],
+      [<span class="num">15.424</span>, <span class="num">68.688</span>],
+      [<span class="num">15.430</span>, <span class="num">68.700</span>],
+      [<span class="num">15.397</span>, <span class="num">68.687</span>]   <span class="cmt">// same as first</span>
+    ]]
+  },
+  <span class="key">"properties"</span>: { <span class="cmt">/* see table below */</span> }
+}</pre>
+
+  <div class="note">
+    Only the exterior ring is rendered. Interior rings (holes) are currently ignored. Coordinate order is <strong>[longitude, latitude]</strong>.
+  </div>
+
+  <h3>Properties</h3>
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr>
+      <td><code>title</code> <span class="tag opt">optional</span></td>
+      <td>string</td>
+      <td>—</td>
+      <td>Billboard label shown above the polygon centroid.</td>
+    </tr>
+    <tr>
+      <td><code>color</code> <span class="tag opt">optional</span></td>
+      <td>hex string</td>
+      <td><code>#87cefb</code></td>
+      <td>Fill colour when no animation is set. For <code>wave</code>, this also sets the water colour — use a blue tone. Ignored for <code>fire</code>.</td>
+    </tr>
+    <tr>
+      <td><code>opacity</code> <span class="tag opt">optional</span></td>
+      <td>integer 0–100</td>
+      <td><code>70</code></td>
+      <td>Transparency of the polygon (plain colour only). <code>100</code> = fully opaque, <code>0</code> = fully transparent.</td>
+    </tr>
+    <tr>
+      <td><code>animation</code> <span class="tag opt">optional</span></td>
+      <td><code>"fire"</code> | <code>"wave"</code></td>
+      <td>—</td>
+      <td>
+        <strong>fire</strong> — dense particle effect covering the polygon footprint at terrain level. The flat polygon is hidden; particles are the entire visual.<br>
+        <strong>wave</strong> — animated 3-D wave mesh (sine-wave vertex displacement). Use a blue <code>color</code> for a sea-water look. The flat polygon is hidden.
+      </td>
+    </tr>
+  </table>
+
+  <h3>Examples</h3>
+  <pre><span class="cmt">// Plain semi-transparent zone</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Polygon"</span>, <span class="key">"coordinates"</span>: [[<span class="cmt">/* coords */</span>]] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Protected area"</span>,
+    <span class="key">"color"</span>: <span class="str">"#44cc88"</span>,
+    <span class="key">"opacity"</span>: <span class="num">50</span>
+  }
+}
+
+<span class="cmt">// Fire animation</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Polygon"</span>, <span class="key">"coordinates"</span>: [[<span class="cmt">/* coords */</span>]] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Fire zone"</span>,
+    <span class="key">"animation"</span>: <span class="str">"fire"</span>
+  }
+}
+
+<span class="cmt">// Wave / water animation</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Polygon"</span>, <span class="key">"coordinates"</span>: [[<span class="cmt">/* coords */</span>]] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Fjord area"</span>,
+    <span class="key">"color"</span>: <span class="str">"#005fad"</span>,
+    <span class="key">"animation"</span>: <span class="str">"wave"</span>
+  }
+}</pre>
+
+  <hr class="divider">
+
+  <!-- ------------------------------------------------------------------ LINE -->
+  <h2 class="line">LineString — routes, borders &amp; walls</h2>
+
+  <p>Renders as a ribbon following the terrain. Thin lines stay flat on the surface; tall lines automatically become vertical walls. A label appears at the midpoint.</p>
+
+  <h3>Geometry</h3>
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: {
+    <span class="key">"type"</span>: <span class="str">"LineString"</span>,
+    <span class="key">"coordinates"</span>: [   <span class="cmt">// list of [longitude, latitude] pairs</span>
+      [<span class="num">15.388</span>, <span class="num">68.690</span>],
+      [<span class="num">15.405</span>, <span class="num">68.696</span>],
+      [<span class="num">15.445</span>, <span class="num">68.708</span>]
+    ]
+  },
+  <span class="key">"properties"</span>: { <span class="cmt">/* see table below */</span> }
+}</pre>
+
+  <h3>Properties</h3>
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr>
+      <td><code>title</code> <span class="tag opt">optional</span></td>
+      <td>string</td>
+      <td>—</td>
+      <td>Billboard label at the midpoint of the line.</td>
+    </tr>
+    <tr>
+      <td><code>color</code> <span class="tag opt">optional</span></td>
+      <td>hex string</td>
+      <td><code>#ff1a1a</code></td>
+      <td>Ribbon colour.</td>
+    </tr>
+    <tr>
+      <td><code>linewidth</code> <span class="tag opt">optional</span></td>
+      <td>number (metres)</td>
+      <td><code>3</code></td>
+      <td>Width of the ribbon in real-world metres. Used for both flat lines and the wall thickness.</td>
+    </tr>
+    <tr>
+      <td><code>lineheight</code> <span class="tag opt">optional</span></td>
+      <td>number (metres)</td>
+      <td><code>5</code></td>
+      <td>
+        Height of the ribbon in metres. When <code>lineheight</code> is more than 3× <code>linewidth / 2</code>, the ribbon is rendered as a <strong>vertical wall</strong> instead of a flat road-like surface. Use large values (e.g. <code>30</code>–<code>100</code>) for fence/wall effects.
+      </td>
+    </tr>
+  </table>
+
+  <h3>Examples</h3>
+  <pre><span class="cmt">// Flat road-like route</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"LineString"</span>, <span class="key">"coordinates"</span>: [[<span class="cmt">/* coords */</span>]] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Ferry route"</span>,
+    <span class="key">"color"</span>: <span class="str">"#0044ff"</span>,
+    <span class="key">"linewidth"</span>: <span class="num">8</span>
+  }
+}
+
+<span class="cmt">// Vertical wall / fence</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"LineString"</span>, <span class="key">"coordinates"</span>: [[<span class="cmt">/* coords */</span>]] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"title"</span>: <span class="str">"Zone boundary"</span>,
+    <span class="key">"color"</span>: <span class="str">"#ff9900"</span>,
+    <span class="key">"linewidth"</span>: <span class="num">2</span>,
+    <span class="key">"lineheight"</span>: <span class="num">40</span>
+  }
+}</pre>
+
+  <hr class="divider">
+
+  <!-- ------------------------------------------------------------------ FULL EXAMPLE -->
+  <h2 class="general">Complete example file</h2>
+
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"FeatureCollection"</span>,
+  <span class="key">"features"</span>: [
+
+    <span class="cmt">// --- Point: info pin with photo</span>
+    {
+      <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+      <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.415</span>, <span class="num">68.694</span>] },
+      <span class="key">"properties"</span>: {
+        <span class="key">"title"</span>: <span class="str">"Harbour"</span>,
+        <span class="key">"color"</span>: <span class="str">"#00ccff"</span>,
+        <span class="key">"information"</span>: <span class="str">"Main harbour.\nCapacity: 120 vessels."</span>,
+        <span class="key">"image"</span>: <span class="str">"harbour.jpg"</span>
+      }
+    },
+
+    <span class="cmt">// --- Polygon: fire hazard zone</span>
+    {
+      <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+      <span class="key">"geometry"</span>: {
+        <span class="key">"type"</span>: <span class="str">"Polygon"</span>,
+        <span class="key">"coordinates"</span>: [[
+          [<span class="num">15.397</span>, <span class="num">68.687</span>], [<span class="num">15.424</span>, <span class="num">68.688</span>],
+          [<span class="num">15.430</span>, <span class="num">68.700</span>], [<span class="num">15.397</span>, <span class="num">68.687</span>]
+        ]]
+      },
+      <span class="key">"properties"</span>: {
+        <span class="key">"title"</span>: <span class="str">"Fire risk area"</span>,
+        <span class="key">"animation"</span>: <span class="str">"fire"</span>
+      }
+    },
+
+    <span class="cmt">// --- Polygon: water body</span>
+    {
+      <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+      <span class="key">"geometry"</span>: {
+        <span class="key">"type"</span>: <span class="str">"Polygon"</span>,
+        <span class="key">"coordinates"</span>: [[
+          [<span class="num">15.440</span>, <span class="num">68.695</span>], [<span class="num">15.470</span>, <span class="num">68.697</span>],
+          [<span class="num">15.465</span>, <span class="num">68.710</span>], [<span class="num">15.440</span>, <span class="num">68.695</span>]
+        ]]
+      },
+      <span class="key">"properties"</span>: {
+        <span class="key">"title"</span>: <span class="str">"Lake"</span>,
+        <span class="key">"color"</span>: <span class="str">"#005fad"</span>,
+        <span class="key">"animation"</span>: <span class="str">"wave"</span>
+      }
+    },
+
+    <span class="cmt">// --- LineString: patrol route</span>
+    {
+      <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+      <span class="key">"geometry"</span>: {
+        <span class="key">"type"</span>: <span class="str">"LineString"</span>,
+        <span class="key">"coordinates"</span>: [
+          [<span class="num">15.388</span>, <span class="num">68.690</span>], [<span class="num">15.405</span>, <span class="num">68.696</span>], [<span class="num">15.445</span>, <span class="num">68.708</span>]
+        ]
+      },
+      <span class="key">"properties"</span>: {
+        <span class="key">"title"</span>: <span class="str">"Patrol route"</span>,
+        <span class="key">"color"</span>: <span class="str">"#ff9900"</span>,
+        <span class="key">"linewidth"</span>: <span class="num">4</span>,
+        <span class="key">"lineheight"</span>: <span class="num">6</span>
+      }
+    }
+
+  ]
+}</pre>
+
+  <hr class="divider">
+
+  <h2 class="general">Quick reference</h2>
+
+  <table>
+    <tr><th>Property</th><th>Applies to</th><th>Type &amp; values</th></tr>
+    <tr><td><code>title</code></td>        <td>All</td>           <td>Any string</td></tr>
+    <tr><td><code>color</code></td>        <td>All</td>           <td>Hex colour, e.g. <code>"#ff4400"</code></td></tr>
+    <tr><td><code>information</code></td>  <td>Point</td>         <td>String — enables click interaction</td></tr>
+    <tr><td><code>image</code></td>        <td>Point</td>         <td>Filename or URL — requires <code>information</code></td></tr>
+    <tr><td><code>3d_model</code></td>     <td>Point</td>         <td>URL to <code>.glb</code> / <code>.gltf</code></td></tr>
+    <tr><td><code>opacity</code></td>      <td>Polygon</td>       <td>Integer 0–100 (default <code>70</code>)</td></tr>
+    <tr><td><code>animation</code></td>    <td>Polygon</td>       <td><code>"fire"</code> or <code>"wave"</code></td></tr>
+    <tr><td><code>linewidth</code></td>    <td>LineString</td>    <td>Metres, default <code>3</code></td></tr>
+    <tr><td><code>lineheight</code></td>   <td>LineString</td>    <td>Metres, default <code>5</code>. &gt;3× half-width → vertical wall</td></tr>
+  </table>
+
+</div>
+</body>
+</html>

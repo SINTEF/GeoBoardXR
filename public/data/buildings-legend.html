@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buildings Colour Legend</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 0.4rem;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 0.75rem;
+      max-width: 900px;
+    }
+
+    .entry {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+
+    .swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+    }
+
+    .info { flex: 1; }
+
+    .type-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      text-transform: capitalize;
+    }
+
+    .type-desc {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      margin-top: 0.2rem;
+      line-height: 1.4;
+    }
+
+    .hex {
+      font-family: "Fira Code", "Courier New", monospace;
+      font-size: 0.72rem;
+      color: #475569;
+      margin-top: 0.25rem;
+    }
+
+    .note {
+      margin-top: 2rem;
+      max-width: 900px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-left: 4px solid #3b82f6;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .note strong { color: #cbd5e1; }
+  </style>
+</head>
+<body>
+
+  <h1>Buildings Colour Legend</h1>
+  <p class="subtitle">Colour coding applied to OSM buildings rendered on the 3D map.</p>
+
+  <div class="legend">
+
+    <div class="entry">
+      <div class="swatch" style="background:#60a5fa;"></div>
+      <div class="info">
+        <div class="type-name">Residential</div>
+        <div class="type-desc">Houses, apartments, flats, dormitories.</div>
+        <div class="hex">#60a5fa</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#fb923c;"></div>
+      <div class="info">
+        <div class="type-name">Commercial</div>
+        <div class="type-desc">Shops, supermarkets, retail centres, malls.</div>
+        <div class="hex">#fb923c</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#34d399;"></div>
+      <div class="info">
+        <div class="type-name">Office</div>
+        <div class="type-desc">Office buildings, government buildings, banks.</div>
+        <div class="hex">#34d399</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#f87171;"></div>
+      <div class="info">
+        <div class="type-name">Industrial</div>
+        <div class="type-desc">Factories, warehouses, storage facilities, manufacturing.</div>
+        <div class="hex">#f87171</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#94a3b8;"></div>
+      <div class="info">
+        <div class="type-name">Garage</div>
+        <div class="type-desc">Garages, parking structures, car ports.</div>
+        <div class="hex">#94a3b8</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#fbbf24;"></div>
+      <div class="info">
+        <div class="type-name">Education</div>
+        <div class="type-desc">Schools, universities, kindergartens, libraries.</div>
+        <div class="hex">#fbbf24</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#f472b6;"></div>
+      <div class="info">
+        <div class="type-name">Hospital</div>
+        <div class="type-desc">Hospitals, clinics, healthcare centres.</div>
+        <div class="hex">#f472b6</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#e879f9;"></div>
+      <div class="info">
+        <div class="type-name">Religious</div>
+        <div class="type-desc">Churches, mosques, temples, chapels.</div>
+        <div class="hex">#e879f9</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#2dd4bf;"></div>
+      <div class="info">
+        <div class="type-name">Hotel</div>
+        <div class="type-desc">Hotels, motels, hostels, guest houses.</div>
+        <div class="hex">#2dd4bf</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#a78bfa;"></div>
+      <div class="info">
+        <div class="type-name">Stadium</div>
+        <div class="type-desc">Sports arenas, stadiums, sports halls.</div>
+        <div class="hex">#a78bfa</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="swatch" style="background:#cbd5e1;"></div>
+      <div class="info">
+        <div class="type-name">Other</div>
+        <div class="type-desc">Any building type not covered by the above categories.</div>
+        <div class="hex">#cbd5e1</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <strong>Source:</strong> Building types are derived from the OpenStreetMap
+    <code>building</code> tag. Colours are applied per building type at load time
+    and cached locally for 7 days. OSM data may not perfectly classify every
+    structure — unrecognised or missing tags fall back to <em>Other</em>.
+  </div>
+
+</body>
+</html>

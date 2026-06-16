@@ -4,3 +4,22 @@
 
 body { margin: 0; padding: 0; overflow: hidden; }
 #renderCanvas { width: 100%; height: 100vh; display: block; touch-action: none; }
+
+.api-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 8, 0, 0.92);
+  border: 1px solid #f97316;
+  color: #fed7aa;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  z-index: 9999;
+  white-space: nowrap;
+  animation: toast-out 0.4s ease 7s forwards;
+}
+@keyframes toast-out { to { opacity: 0; pointer-events: none; } }

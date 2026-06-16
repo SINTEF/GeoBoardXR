@@ -23,6 +23,8 @@ export interface PointLayerOptions<P> {
    * If omitted entirely, no tooltip is shown.
    */
   labelFn?: (properties: P) => string | null | undefined;
+  /** Called when a marker is clicked. Use to drive external UI like projection walls. */
+  onPickFn?: (properties: P) => void;
 }
 
 const DEFAULT_COLOR = new Color3(0.1, 0.8, 0.2); // green
@@ -79,6 +81,7 @@ export function createPointLayer<P>(
     colorFn = (_p: P) => DEFAULT_COLOR,
     altitudeOffset = 0.05,
     labelFn,
+    onPickFn,
   } = options;
 
   // One material per unique colour to avoid redundant GPU state changes.
@@ -98,11 +101,20 @@ export function createPointLayer<P>(
   // Shared tooltip — created only if a labelFn is provided.
   const tooltip = labelFn ? createTooltip(scene, markerDiameter) : null;
 
-  return features.map((feature, idx) => {
-    const sphere = CreateSphere(`point-${idx}`, { diameter: markerDiameter, segments: 4 }, scene);
+  const { minimumWorld, maximumWorld } = terrainMesh.groundMesh.getBoundingInfo().boundingBox;
 
+  return features.flatMap((feature, idx) => {
     const pos = terrainMesh.latLngToScaledWorld(feature.position);
     pos.y += altitudeOffset;
+
+    if (
+      pos.x < minimumWorld.x || pos.x > maximumWorld.x ||
+      pos.z < minimumWorld.z || pos.z > maximumWorld.z
+    ) {
+      return [];
+    }
+
+    const sphere = CreateSphere(`point-${idx}`, { diameter: markerDiameter, segments: 4 }, scene);
     sphere.position = pos;
 
     sphere.material = getMaterial(colorFn(feature.properties));
@@ -114,6 +126,7 @@ export function createPointLayer<P>(
     sphere.actionManager.registerAction(
       new ExecuteCodeAction(ActionManager.OnPickTrigger, () => {
         sphere.material = getMaterial(randomColor3());
+        onPickFn?.(feature.properties);
       })
     );
 
@@ -131,6 +144,6 @@ export function createPointLayer<P>(
       );
     }
 
-    return sphere;
+    return [sphere];
   });
 }

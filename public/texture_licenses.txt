@@ -1,0 +1,22 @@
+Asset Licenses
+==============
+
+floor.jpg
+  Source: AmbientCG — WoodFloor033
+  URL: https://ambientcg.com/view?id=WoodFloor033
+  License: CC0 1.0 Universal (Public Domain)
+
+wood.jpg
+  Source: Poly Haven — oak_veneer_01
+  URL: https://polyhaven.com/a/oak_veneer_01
+  License: CC0 1.0 Universal (Public Domain)
+
+public/data/sample-image.jpg
+  Source: Pexels — "Stunning Arizona Desert Sunset Landscape"
+  URL: https://www.pexels.com/photo/stunning-arizona-desert-sunset-landscape-29270283/
+  License: Pexels License (free for commercial and non-commercial use, no attribution required)
+
+public/data/sample-3dmodel.glb
+  Source: Pixabay — Hanging Lantern 3D model
+  URL: https://pixabay.com/3d-models/lantern-hanging-lantern-4120/
+  License: Pixabay Content License (free for commercial and non-commercial use, no attribution required)

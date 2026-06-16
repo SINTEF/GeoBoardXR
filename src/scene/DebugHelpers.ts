@@ -2,10 +2,8 @@ import type { Scene } from "@babylonjs/core/scene";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
 import { AxesViewer } from "@babylonjs/core/Debug/axesViewer";
-import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
-import { GridMaterial } from "@babylonjs/materials/grid/gridMaterial";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
@@ -115,24 +113,5 @@ export function pinLatLng(
 export function createSceneDebugHelpers(scene: Scene, ui: AdvancedDynamicTexture, terrainMesh: Mesh): void {
   createDebugOverlay(ui, terrainMesh, scene);
 
-  // Grid: 100×100 cells, each cell is 0.1 units wide → total extent is 10 units.
-  const cellSize = 0.1;
-  const divisions = 50;
-  const gridSize = cellSize * divisions;
-
-  // X = red (east), Y = green (up), Z = blue (north)
   new AxesViewer(scene, 0.25);
-
-  // GridMaterial renders the grid procedurally in a shader — a single plane mesh,
-  // far cheaper than thousands of line segments.
-  const ground = CreateGround("debug-grid", { width: gridSize, height: gridSize }, scene);
-  const mat = new GridMaterial("debug-grid-mat", scene);
-  mat.gridRatio = cellSize;
-  mat.mainColor = new Color3(0.2, 0.2, 0.2);
-  mat.lineColor = new Color3(0.6, 0.6, 0.6);
-  mat.opacity = 0.7;
-  mat.backFaceCulling = false;
-  // Render in group 1 so it always draws on top of terrain (group 0), eliminating z-fighting.
-  ground.renderingGroupId = 1;
-  ground.material = mat;
 }

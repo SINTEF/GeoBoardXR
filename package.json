@@ -1,15 +1,17 @@
 {
-  "name": "mapbox-babylonjs",
-  "private": true,
-  "version": "0.0.0",
+  "name": "geoboardxr",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "shipit": "scp -r ./dist/* cpanel:~/public_html/resist/oceanmodel"
+    "shipit": "scp -r ./dist/* cpanel:~/public_html/geoboardxr"
   },
   "devDependencies": {
+    "@types/earcut": "^3.0.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "typescript": "~5.9.3",
     "vite": "^7.1.7"
   },
@@ -19,6 +21,7 @@
     "@babylonjs/loaders": "^8.53.1",
     "@babylonjs/materials": "^8.54.3",
     "@mapbox/martini": "^0.2.0",
+    "earcut": "^3.0.2",
     "geotiff": "^3.0.5"
   }
 }

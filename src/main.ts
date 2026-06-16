@@ -6,35 +6,41 @@ import "@babylonjs/core/Animations/animatable";
 // hand/controller shader snippets downloaded from the Babylon.js snippet server at runtime.
 import "@babylonjs/core/Materials/Node/Blocks";
 
-import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { WebXRState } from "@babylonjs/core/XR/webXRTypes";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
-import { GUI3DManager } from "@babylonjs/gui/3D/gui3DManager";
 
 import { createScene } from "./scene/SceneManager";
 import { TerrainMesh } from "./scene/TerrainMesh";
-import { MapboxTerrainAdapter } from "./data/adapters/mapboxTerrainAdapter";
-import { GeonorgeDepthAdapter } from "./data/adapters/geonorgeDepthAdapter";
+import { MapboxTerrainAdapter, lngLatToTile, tileBoundsLngLat } from "./data/adapters/mapboxTerrainAdapter";
+import { KartverketElevationAdapter } from "./data/adapters/kartverketElevationAdapter";
+import { loadOSMBuildings } from "./data/loaders/osmBuildingLoader";
+import { loadOSMRoads } from "./data/loaders/osmRoadLoader";
+import { createRoadLayer } from "./scene/RoadLayer";
+import { createBuildingLayer } from "./scene/BuildingLayer";
+import { loadOSMPlaces } from "./data/loaders/osmPlaceLoader";
+import { createPlaceLabels } from "./scene/PlaceLabels";
+import { createToggleButtons } from "./scene/ToggleButtons";
 import { buildGeometry } from "./data/TerrainBuilder";
-import { createOceanSurface } from "./scene/OceanSurface";
-import { TemperatureLayer } from "./scene/TemperatureLayer";
-import { NorkystTemperatureAdapter } from "./data/adapters/norkystTemperatureAdapter";
-import { lngLatToTile } from "./data/adapters/mapboxTerrainAdapter";
 import { initXR } from "./xr/XRManager";
-import { loadPointFeatures, type AquacultureProperties } from "./data/loaders/geojsonLoader";
-import { createPointLayer } from "./scene/PointLayer";
-import { createDebugOverlay, createSceneDebugHelpers, pinLatLng } from "./scene/DebugHelpers";
+import geojsonFiles from "virtual:geojson-manifest";
+import { loadGeoJSONFeatures } from "./data/loaders/geojsonLoader";
+import { createGeoJSONPointLayer, type PinState } from "./scene/GeoJSONPointLayer";
+import { createGeoJSONPolygonLayer } from "./scene/GeoJSONPolygonLayer";
+import { createGeoJSONLineLayer } from "./scene/GeoJSONLineLayer";
+import { createDebugOverlay } from "./scene/DebugHelpers";
+import { createTable } from "./scene/Table";
+import { createRoom } from "./scene/Room";
+import { createProjectionWalls } from "./scene/ProjectionWalls";
 import { dataUrl } from "./utils";
 
 import "./style.css";
 
 const DEBUG = import.meta.env.DEV;
 
-const ANCHOR = { lat: 69.1, lng: 15.7997522, zoom: 7 }; // Vesterålen, Norway
-const ELEV_EXAGGERATION = 2;
-const MESH_SCALE = 0.00005;
-const MAX_ERROR = 20;
-const TERRAIN_COUNT = 3;
+const ANCHOR            = { lat: 68.69373915809578, lng: 15.402189541432762, zoom: 10 };
+const ELEV_EXAGGERATION = 1;
+const MESH_SCALE        = 0.0008;
+const MAX_ERROR         = 5;
 
 // ---------------------------------------------------------------------------
 // 1. BabylonJS — canvas, WebGL context, render loop
@@ -42,9 +48,9 @@ const TERRAIN_COUNT = 3;
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 const { scene } = createScene(canvas);
+(window as any).__scene = scene;
 
-const gui2D = AdvancedDynamicTexture.CreateFullscreenUI("ui", true, scene);
-const gui3D = new GUI3DManager(scene);
+const gui2D = DEBUG ? AdvancedDynamicTexture.CreateFullscreenUI("ui", true, scene) : null;
 
 // ---------------------------------------------------------------------------
 // 2. Data pipeline
@@ -52,79 +58,37 @@ const gui3D = new GUI3DManager(scene);
 
 const adapter = new MapboxTerrainAdapter(
   (import.meta as { env: Record<string, string> }).env.VITE_MAPBOX_TOKEN,
-  { debug: DEBUG, depthAdapter: new GeonorgeDepthAdapter() }
+  { debug: DEBUG, kartverketAdapter: new KartverketElevationAdapter() }
 );
 
 const terrainData = await adapter.fetchTerrain(ANCHOR);
-const geometry = buildGeometry(terrainData, { maxError: MAX_ERROR, elevExaggeration: ELEV_EXAGGERATION });
+const geometry    = buildGeometry(terrainData, { maxError: MAX_ERROR, elevExaggeration: ELEV_EXAGGERATION });
 
 // ---------------------------------------------------------------------------
-// 3. Terrain — original mesh + clones spread side by side
+// 3. Terrain
 // ---------------------------------------------------------------------------
 
 const terrainMesh = new TerrainMesh(scene);
-const groundMesh = terrainMesh.createMesh(geometry, { meshScale: MESH_SCALE });
+const groundMesh  = terrainMesh.createMesh(geometry, { meshScale: MESH_SCALE });
 
-const terrainMeshes = [groundMesh];
-for (let i = 1; i < TERRAIN_COUNT; i++) {
-  const clone = groundMesh.clone(`terrain-${i}`);
-  if (clone) terrainMeshes.push(clone);
-}
-
-const terrainWidth = groundMesh.getBoundingInfo().boundingBox.extendSize.x * 2 * MESH_SCALE;
-const terrainStep  = terrainWidth * 1.05; // 5 % gap between tiles
-const centerOffset = (TERRAIN_COUNT - 1) / 2;
-terrainMeshes.forEach((mesh, i) => {
-  mesh.position.x = (i - centerOffset) * terrainStep;
-});
-
-// The center terrain sits at x=0 — this is where the ocean/temperature overlays live.
-const centerTerrain = terrainMeshes[Math.floor(TERRAIN_COUNT / 2)];
+groundMesh.computeWorldMatrix(true);
+const { minimumWorld, maximumWorld } = groundMesh.getBoundingInfo().boundingBox;
+createTable(scene, minimumWorld, maximumWorld);
+createRoom(scene, minimumWorld, maximumWorld);
 
 // ---------------------------------------------------------------------------
-// 4. Ocean surface — WaterMaterial waves, centered on middle terrain
+// 4. Debug helpers
 // ---------------------------------------------------------------------------
 
-const oceanMesh = createOceanSurface(scene, terrainData, {
-  meshScale: MESH_SCALE,
-  terrainMesh: centerTerrain,
-});
-
-// Temperature layer sits just below the wave surface and shows through it.
-const { x: tx, y: ty, z: tz } = lngLatToTile(ANCHOR.lng, ANCHOR.lat, ANCHOR.zoom);
-const tempGrid = await new NorkystTemperatureAdapter().fetchTemperatureGrid(tx, ty, tz);
-if (tempGrid) {
-  const tempMesh = new TemperatureLayer().create(scene, terrainData, tempGrid, MESH_SCALE);
-  // Add the temperature plane to the water's RTT render lists so its colours
-  // also appear in wave reflections and refractions.
-  const { WaterMaterial } = await import("@babylonjs/materials/water/waterMaterial");
-  if (oceanMesh.material instanceof WaterMaterial) {
-    oceanMesh.material.addToRenderList(tempMesh);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 5. Debug helpers
-// ---------------------------------------------------------------------------
-
-if (DEBUG) {
-  createSceneDebugHelpers(scene, gui2D, groundMesh);
+if (DEBUG && gui2D) {
   createDebugOverlay(gui2D, groundMesh, scene);
-
-  const centre = terrainMesh.meshCenter;
-  pinLatLng(centre.lat, centre.lng, terrainMesh, scene, { color: new Color3(1, 1, 1), label: "tile centre" });
-  pinLatLng(ANCHOR.lat, ANCHOR.lng, terrainMesh, scene, { color: new Color3(1, 1, 0), label: "ANCHOR" });
-  pinLatLng(69.3142957, 16.0601352, terrainMesh, scene, { color: new Color3(1, 0.2, 0.2), label: "Andenes" });
-  pinLatLng(68.6938756, 15.3958381, terrainMesh, scene, { color: new Color3(1, 0.2, 0.2), label: "Sortland" });
-
-  console.log("[debug] worldToLatLng(0,0) =", terrainMesh.worldToLatLng(0, 0), "(should match tile centre)");
 }
 
 // ---------------------------------------------------------------------------
-// 6. WebXR — all terrain tiles usable as floor
+// 5. WebXR
 // ---------------------------------------------------------------------------
 
-const xrHelper = await initXR(scene, terrainMeshes);
+const xrHelper = await initXR(scene, [groundMesh]);
 if (xrHelper) {
   xrHelper.baseExperience.onStateChangedObservable.add((state) => {
     if (state === WebXRState.IN_XR) {
@@ -134,17 +98,68 @@ if (xrHelper) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. GeoJSON point layer — Norwegian Aquaculture Registry
+// 6. OSM Buildings
 // ---------------------------------------------------------------------------
 
-const aquacultureFeatures = await loadPointFeatures<AquacultureProperties>(
-  dataUrl("Akvakulturregisteret150.geojson")
-);
-createPointLayer(aquacultureFeatures, terrainMesh, scene, {
-  colorFn: (p) =>
-    p.status_lokalitet === "KLARERT"
-      ? new Color3(0.1, 0.85, 0.2)
-      : new Color3(1.0, 0.5, 0.0),
-  labelFn: (p) => `${p.navn} · ${p.status_lokalitet}`,
-});
-console.log(`Loaded ${aquacultureFeatures.length} aquaculture sites`);
+const showApiToast = (msg: string) => {
+  const el = document.createElement("div");
+  el.className = "api-toast";
+  el.textContent = `⚠ ${msg}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 8000);
+};
+
+const { x: btx, y: bty, z: btz } = lngLatToTile(ANCHOR.lng, ANCHOR.lat, ANCHOR.zoom);
+const [buildingRes, placeRes, roadRes] = await Promise.allSettled([
+  loadOSMBuildings(btx, bty, btz),
+  loadOSMPlaces(btx, bty, btz),
+  loadOSMRoads(btx, bty, btz),
+]);
+
+const buildings = buildingRes.status === "fulfilled" ? buildingRes.value : (showApiToast("API for Buildings (OSM) is unreachable — try again later"), []);
+const places    = placeRes.status    === "fulfilled" ? placeRes.value    : (showApiToast("API for Places (OSM) is unreachable — try again later"),    []);
+const roads     = roadRes.status     === "fulfilled" ? roadRes.value     : (showApiToast("API for Roads (OSM) is unreachable — try again later"),     []);
+const tileBounds = tileBoundsLngLat(btx, bty, btz);
+const getTerrainY = (lat: number, lng: number): number => {
+  const u   = (lng - tileBounds.west)  / (tileBounds.east  - tileBounds.west);
+  const v   = (tileBounds.north - lat) / (tileBounds.north - tileBounds.south);
+  const col = Math.min(256, Math.max(0, Math.round(u * 256)));
+  const row = Math.min(256, Math.max(0, Math.round(v * 256)));
+  return terrainData.elevation[row * 257 + col] * MESH_SCALE;
+};
+const buildingMeshes = createBuildingLayer(buildings, terrainMesh, scene, MESH_SCALE, getTerrainY);
+const roadMeshes     = createRoadLayer(roads, terrainMesh, scene, MESH_SCALE, getTerrainY);
+const labelMeshes    = createPlaceLabels(places, terrainMesh, scene, getTerrainY);
+
+// ---------------------------------------------------------------------------
+// 7. GeoJSON data layers — one toggle button per .geojson file in public/data/
+// ---------------------------------------------------------------------------
+
+const projWalls = createProjectionWalls(scene, { min: minimumWorld, max: maximumWorld });
+const pinState: PinState = { clearSelection: () => {} };
+
+type ToggleLayer = { label: string; meshes: import("@babylonjs/core/Meshes/mesh").Mesh[] };
+const toggleLayers: ToggleLayer[] = [
+  { label: "Buildings", meshes: buildingMeshes },
+  { label: "Roads",     meshes: roadMeshes     },
+  { label: "Labels",    meshes: labelMeshes    },
+];
+
+for (const filename of geojsonFiles) {
+  try {
+    const data = await loadGeoJSONFeatures(dataUrl(filename));
+    const pointMeshes   = await createGeoJSONPointLayer(data.points,   terrainMesh, scene, getTerrainY, projWalls, pinState);
+    const polygonMeshes = createGeoJSONPolygonLayer(data.polygons, terrainMesh, scene, MESH_SCALE, getTerrainY);
+    const lineMeshes    = createGeoJSONLineLayer(data.lines,    terrainMesh, scene, MESH_SCALE, getTerrainY);
+    const allMeshes     = [...pointMeshes, ...polygonMeshes, ...lineMeshes];
+    // Use the GeoJSON collection's "name" property; fall back to the filename without extension
+    const fallback = filename.replace(/\.geojson$/i, "");
+    const displayLabel = data.name ?? (fallback.charAt(0).toUpperCase() + fallback.slice(1));
+    if (allMeshes.length > 0) toggleLayers.push({ label: displayLabel, meshes: allMeshes });
+    console.log(`[GeoJSON] "${filename}" (${displayLabel}) → ${allMeshes.length} meshes`);
+  } catch (e) {
+    console.warn(`[GeoJSON] Failed to load "${filename}":`, e);
+  }
+}
+
+createToggleButtons(scene, { min: minimumWorld, max: maximumWorld }, toggleLayers);

@@ -1,6 +1,7 @@
 import type { Scene } from "@babylonjs/core/scene";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { WebXRDefaultExperience } from "@babylonjs/core/XR/webXRDefaultExperience";
+import { WebXRSessionManager } from "@babylonjs/core/XR/webXRSessionManager";
 
 /**
  * Initialises WebXR with standard VR options and a floor mesh for teleportation.
@@ -11,6 +12,11 @@ export async function initXR(
   floorMeshes: Mesh[]
 ): Promise<WebXRDefaultExperience | null> {
   try {
+    const supported = await WebXRSessionManager.IsSessionSupportedAsync("immersive-vr");
+    if (!supported) {
+      console.log("WebXR: immersive-vr not supported, skipping");
+      return null;
+    }
     const xrHelper = await WebXRDefaultExperience.CreateAsync(scene, {
       floorMeshes,
       uiOptions: {

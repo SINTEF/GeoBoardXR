@@ -1,0 +1,309 @@
+{
+  "type": "FeatureCollection",
+  "name": "MyGeoJSON",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              15.370033,
+              68.6944267
+            ],
+            [
+              15.3684418,
+              68.6938003
+            ],
+            [
+              15.3682429,
+              68.6936076
+            ],
+            [
+              15.368044,
+              68.6931017
+            ],
+            [
+              15.3683755,
+              68.692909
+            ],
+            [
+              15.3698341,
+              68.6923548
+            ],
+            [
+              15.3699667,
+              68.6920898
+            ],
+            [
+              15.3699667,
+              68.6919694
+            ],
+            [
+              15.3706298,
+              68.6920416
+            ],
+            [
+              15.371558,
+              68.692138
+            ],
+            [
+              15.3718232,
+              68.6922344
+            ],
+            [
+              15.3720221,
+              68.6923548
+            ],
+            [
+              15.3719558,
+              68.6925235
+            ],
+            [
+              15.3720221,
+              68.6925958
+            ],
+            [
+              15.3723536,
+              68.6926921
+            ],
+            [
+              15.3726188,
+              68.6927644
+            ],
+            [
+              15.3723536,
+              68.6929331
+            ],
+            [
+              15.3730829,
+              68.6934872
+            ],
+            [
+              15.3738123,
+              68.693704
+            ],
+            [
+              15.3730166,
+              68.6939931
+            ],
+            [
+              15.3728177,
+              68.6943544
+            ],
+            [
+              15.3714917,
+              68.6944026
+            ],
+            [
+              15.370033,
+              68.6944267
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "animation": "fire"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.3657234,
+          68.6939208
+        ]
+      },
+      "properties": {
+        "title": "Fire!!!"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            15.3937817,
+            68.7069337
+          ],
+          [
+            15.4040679,
+            68.7069067
+          ],
+          [
+            15.409062,
+            68.7083412
+          ]
+        ]
+      },
+      "properties": {
+        "title": "This is a Line",
+        "linesize": 100,
+        "lineheight": 100
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.4016082,
+          68.69846
+        ]
+      },
+      "properties": {
+        "title": "Colored point",
+        "color": "#c30ade"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.3963905,
+          68.6914457
+        ]
+      },
+      "properties": {
+        "3dmodel": "sample-3dmodel.glb",
+        "title": "3D icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.4052605,
+          68.6878971
+        ]
+      },
+      "properties": {
+        "information": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed vestibulum diam. Integer eget turpis congue libero vulputate imperdiet. Nulla pulvinar lorem ut malesuada scelerisque. Duis eget feugiat dolor.",
+        "title": "Infopoint1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.410648,
+          68.7007123
+        ]
+      },
+      "properties": {
+        "information": "2 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed vestibulum diam. Integer eget turpis congue libero vulputate imperdiet. Nulla pulvinar lorem ut malesuada scelerisque. Duis eget feugiat dolor.",
+        "image": "sample-image.jpg",
+        "title": "Infopoint2\nwith image",
+        "color": "#0a5ade"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "animation": "wave"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              15.4198478,
+              68.689677
+            ],
+            [
+              15.4180526,
+              68.6897975
+            ],
+            [
+              15.4179145,
+              68.6896369
+            ],
+            [
+              15.4179974,
+              68.6895867
+            ],
+            [
+              15.4177764,
+              68.6893759
+            ],
+            [
+              15.4166165,
+              68.6899079
+            ],
+            [
+              15.4162574,
+              68.6895566
+            ],
+            [
+              15.4159536,
+              68.6888841
+            ],
+            [
+              15.4156222,
+              68.6884525
+            ],
+            [
+              15.4142137,
+              68.6875692
+            ],
+            [
+              15.4146832,
+              68.6873985
+            ],
+            [
+              15.414628,
+              68.6868766
+            ],
+            [
+              15.4145451,
+              68.6865453
+            ],
+            [
+              15.4139651,
+              68.6864349
+            ],
+            [
+              15.4130814,
+              68.6866256
+            ],
+            [
+              15.414407,
+              68.6860936
+            ],
+            [
+              15.4241562,
+              68.6862441
+            ],
+            [
+              15.4257028,
+              68.6895164
+            ],
+            [
+              15.4198478,
+              68.689677
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "Wave!"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.4136613,
+          68.6886633
+        ]
+      }
+    }
+  ]
+}

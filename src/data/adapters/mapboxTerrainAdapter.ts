@@ -1,5 +1,5 @@
 import type { LatLngZoomLike, TerrainData } from "../types";
-import type { GeonorgeDepthAdapter } from "./geonorgeDepthAdapter";
+import type { KartverketElevationAdapter } from "./kartverketElevationAdapter";
 
 // ---------------------------------------------------------------------------
 // Tile coordinate helpers (standard slippy-map / Web Mercator)
@@ -73,15 +73,23 @@ async function fetchSatelliteTile(
   await Promise.all(
     childTiles.map(async ({ x, y, col, row }) => {
       const url = `https://api.mapbox.com/v4/mapbox.satellite/${childZ}/${x}/${y}@2x.jpg90?access_token=${token}`;
-      const blob = await fetch(url).then((r) => r.blob());
+      const res = await fetch(url);
+      if (!res.ok) console.warn(`[Satellite] tile ${childZ}/${x}/${y} → HTTP ${res.status}`);
+      const blob = await res.blob();
       const bitmap = await createImageBitmap(blob);
       ctx.drawImage(bitmap, col * tileSize, row * tileSize);
       bitmap.close();
     })
   );
 
+  // data URL works in all environments; blob URLs can be blocked by CSP in production
   const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
-  return URL.createObjectURL(blob);
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => { console.log("[Satellite] texture ready"); resolve(reader.result as string); };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 async function fetchDEMTile(
@@ -92,7 +100,7 @@ async function fetchDEMTile(
 ): Promise<ImageBitmap> {
   // colorSpaceConversion: "none" → prevent sRGB gamma from corrupting elevation values.
   // premultiplyAlpha: "none"    → terrain-rgb alpha should always be 255, but guard anyway.
-  const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${tz}/${tx}/${ty}.png?access_token=${token}`;
+  const url = `https://api.mapbox.com/v4/mapbox.mapbox-terrain-dem-v1/${tz}/${tx}/${ty}.pngraw?access_token=${token}`;
   const blob = await fetch(url).then((r) => r.blob());
   return createImageBitmap(blob, {
     colorSpaceConversion: "none",
@@ -191,23 +199,13 @@ function decodeTerrain(
   // Step 2: Median filter — removes speckle while preserving ridgelines and cliffs.
   const smoothed = applyMedianFilter(raw, 256, 256);
 
-  // Step 2b: Merge Geonorge bathymetry into ocean pixels (raw ASL space,
-  // before normalization so both grids are in the same units).
-  // Geonorge grid value 0 is the "no data" sentinel (land or outside coverage).
-  // Geonorge wins whenever it has ocean data — at low zoom levels Mapbox shows
-  // the sea as a flat 0 m plane (no sub-sea-level depth), so we intentionally
-  // do NOT require smoothed[i] < 0 here.
   let mergedPixels = 0;
   if (geonorgeGrid) {
     for (let i = 0; i < 256 * 256; i++) {
-      const geoDepth = geonorgeGrid[i];
-      if (geoDepth < 0) {
-        // Both say ocean — Geonorge gives better depth detail.
-        smoothed[i] = geoDepth;
-        mergedPixels++;
-      }
+      const kElev = geonorgeGrid[i];
+      if (kElev > 0) { smoothed[i] = kElev; mergedPixels++; }
     }
-    console.log(`Geonorge merge: replaced ${mergedPixels} underwater pixels out of total ${256 * 256} pixels (${((mergedPixels / (256 * 256)) * 100).toFixed(2)}%)`);
+    console.log(`Kartverket merge: replaced ${mergedPixels}/${256 * 256} land pixels`);
   }
 
   // Step 3: Build 257×257 Martini grid by duplicating the last row/col.
@@ -232,22 +230,19 @@ function decodeTerrain(
 // ---------------------------------------------------------------------------
 
 export interface MapboxTerrainAdapterOptions {
-  /** When true, shows a raw DEM bitmap overlay in the browser corner for debugging. */
   debug?: boolean;
-  /** Optional Geonorge depth adapter. When provided, MAREANO bathymetry is
-   *  fetched in parallel and merged into the elevation grid for underwater pixels. */
-  depthAdapter?: GeonorgeDepthAdapter;
+  kartverketAdapter?: KartverketElevationAdapter;
 }
 
 export class MapboxTerrainAdapter {
   private readonly _token: string;
   private readonly _debug: boolean;
-  private readonly _depthAdapter: GeonorgeDepthAdapter | undefined;
+  private readonly _kartverketAdapter: KartverketElevationAdapter | undefined;
 
   constructor(token: string, options: MapboxTerrainAdapterOptions = {}) {
     this._token = token;
     this._debug = options.debug ?? false;
-    this._depthAdapter = options.depthAdapter;
+    this._kartverketAdapter = options.kartverketAdapter;
   }
 
   async fetchTerrain(anchor: LatLngZoomLike): Promise<TerrainData> {
@@ -265,39 +260,20 @@ export class MapboxTerrainAdapter {
       `size: ${widthMetres.toFixed(0)} m (EW) × ${heightMetres.toFixed(0)} m (NS)`
     );
 
-    // Fetch DEM, satellite, and (optionally) Geonorge depth in parallel.
-    // Geonorge needs Mapbox minElev for calibration — so we do a two-step fetch:
-    // first DEM + satellite together, then decode DEM to get minElev, then Geonorge.
-    // In practice the Geonorge fetch is fast enough that sequential is acceptable.
-    const [demBitmap, satelliteUrl] = await Promise.all([
+    const [demBitmap, satelliteUrl, kartverketGrid] = await Promise.all([
       fetchDEMTile(tile.x, tile.y, tile.z, this._token),
       fetchSatelliteTile(tile.x, tile.y, tile.z, this._token),
+      this._kartverketAdapter
+        ? this._kartverketAdapter.fetchElevationGrid(tile.x, tile.y, tile.z)
+        : Promise.resolve(undefined),
     ]);
 
     if (this._debug) {
-      // Show the raw terrain-rgb tile as a browser overlay — duplicate before consuming
-      const copyBitmap = await createImageBitmap(demBitmap, {
-        colorSpaceConversion: "none",
-        premultiplyAlpha: "none",
-      });
+      const copyBitmap = await createImageBitmap(demBitmap, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
       this._debugShowBitmap(copyBitmap);
     }
 
-    // First pass: decode without Geonorge to find minElev, needed to calibrate
-    // the Geonorge grayscale pixels to an absolute depth scale.
-    // ImageBitmap is not consumed by drawImage, so the bitmap can be reused.
-    const firstPass = decodeTerrain(demBitmap, this._debug);
-
-    // Fetch Geonorge depth grid calibrated to the Mapbox depth range.
-    const geonorgeGrid = this._depthAdapter
-      ? await this._depthAdapter.fetchDepthGrid(tile.x, tile.y, tile.z, firstPass.minElev)
-      : undefined;
-
-    // Second pass: re-decode + merge Geonorge into underwater pixels.
-    // If no Geonorge data was returned, reuse the first-pass result as-is.
-    const { elevation, minElev, maxElev } = geonorgeGrid
-      ? decodeTerrain(demBitmap, this._debug, geonorgeGrid)
-      : firstPass;
+    const { elevation, minElev, maxElev } = decodeTerrain(demBitmap, this._debug, kartverketGrid);
     if (this._debug) console.log(
       `DEM decoded — ${minElev.toFixed(0)}–${maxElev.toFixed(0)} m ASL, range ${(maxElev - minElev).toFixed(0)} m`
     );

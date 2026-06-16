@@ -1,11 +1,12 @@
 import type { Scene } from "@babylonjs/core/scene";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
-import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial";
 import { Effect } from "@babylonjs/core/Materials/effect";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Color3 } from "@babylonjs/core/Maths/math.color"; // used by specularColor
 import { latLngToOffset, worldOffsetToLatLng } from "../data/geo";
 import type { LatLngAltLike, LatLngZoomLike, TerrainGeometry } from "../data/types";
 
@@ -78,10 +79,12 @@ export class TerrainMesh {
 
     // PBRMaterial with metallic=0, roughness=1 gives a fully matte surface —
     // no specular highlight, which is appropriate for satellite imagery of terrain.
-    const mat = new PBRMaterial("terrain-mat", this._scene);
-    mat.albedoTexture = new Texture(geometry.satelliteUrl, this._scene);
-    mat.metallic = 0;
-    mat.roughness = 1;
+    const tex = new Texture(geometry.satelliteUrl, this._scene);
+    tex.anisotropicFilteringLevel = 16;
+
+    const mat = new StandardMaterial("terrain-mat", this._scene);
+    mat.diffuseTexture = tex;
+    mat.specularColor = new Color3(0, 0, 0);
     mat.backFaceCulling = false;
     this._groundMesh.material = mat;
 

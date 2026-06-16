@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#0a1628"/>
+  <!-- terrain grid lines -->
+  <polyline points="2,22 10,14 16,18 22,10 30,16" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <polyline points="2,26 10,18 16,22 22,14 30,20" fill="none" stroke="#0d9488" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- peak dot -->
+  <circle cx="22" cy="10" r="2.2" fill="#2dd4bf"/>
+</svg>
