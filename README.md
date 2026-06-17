@@ -284,6 +284,8 @@ src/
 
 Contributions are welcome. Open an issue to discuss before starting:
 
+- **Region switching robustness** — thorough testing of geographic region switching to surface and resolve edge cases, race conditions, and loading bugs across terrain, OSM, and data layers
+- **Overpass API resilience** — OSM data (buildings, roads, place labels) is fetched from the public `overpass-api.de` endpoint, which has no availability guarantees. Adding fallback rotation across community mirrors (`overpass.kumi.systems`, `overpass.openstreetmap.ru`) would make the first-load experience significantly more reliable
 - **AR tuning** — AR mode works via WebXR passthrough but needs calibration for table-scale placement and occlusion on different devices
 - **Bathymetry & ocean terrain** — integrate seafloor elevation data and ocean current / water column datasets as dedicated layers
 - **Fuzzy cognitive maps** — visualise FCM nodes and weighted edges as an interactive 3D graph layer on the terrain
