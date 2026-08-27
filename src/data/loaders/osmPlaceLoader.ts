@@ -1,4 +1,5 @@
 import { tileBoundsLngLat } from "../adapters/mapboxTerrainAdapter";
+import { fetchOverpass } from "./overpassFetch";
 
 export type PlaceType = "city" | "town" | "village" | "hamlet" | "suburb" | "locality";
 
@@ -24,25 +25,18 @@ export async function loadOSMPlaces(tx: number, ty: number, tz: number): Promise
 
   const query = `[out:json][timeout:25];node["place"]["name"](${south},${west},${north},${east});out;`;
 
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+  const data = await fetchOverpass(query);
 
-    const places: OSMPlace[] = data.elements
-      .filter((el: any) => el.type === "node" && el.tags?.name && PLACE_TYPES.includes(el.tags.place))
-      .map((el: any) => ({
-        name: el.tags.name as string,
-        lat:  el.lat  as number,
-        lng:  el.lon  as number,
-        type: el.tags.place as PlaceType,
-      }));
+  const places: OSMPlace[] = data.elements
+    .filter((el: any) => el.type === "node" && el.tags?.name && PLACE_TYPES.includes(el.tags.place))
+    .map((el: any) => ({
+      name: el.tags.name as string,
+      lat:  el.lat  as number,
+      lng:  el.lon  as number,
+      type: el.tags.place as PlaceType,
+    }));
 
-    console.log(`[OSM Places] Loaded ${places.length} place labels`);
-    localStorage.setItem(cacheKey, JSON.stringify({ data: places, ts: Date.now() }));
-    return places;
-  } catch (err) {
-    throw err;
-  }
+  console.log(`[OSM Places] Loaded ${places.length} place labels`);
+  localStorage.setItem(cacheKey, JSON.stringify({ data: places, ts: Date.now() }));
+  return places;
 }

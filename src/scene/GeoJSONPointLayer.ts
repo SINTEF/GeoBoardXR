@@ -64,11 +64,15 @@ export async function createGeoJSONPointLayer(
     const hasInfo = !!p.information;
     // Infopoints default to green (#23d110); plain points default to yellow
     const color = p.color ? hexToColor3(p.color) : (hasInfo ? hexToColor3("#23d110") : new Color3(1, 0.9, 0));
-    // image is only valid when information is also present — per spec
-    // Resolve relative image paths to public/data/ — absolute URLs are used as-is
+    // image/video are only valid when information is also present — per spec
+    // Resolve relative paths to public/data/ — absolute URLs are used as-is
     const rawImage = hasInfo ? p.image : undefined;
     const imageUrl = rawImage
       ? (/^https?:\/\/|^\//.test(rawImage) ? rawImage : dataUrl(rawImage))
+      : undefined;
+    const rawVideo = hasInfo ? p.video : undefined;
+    const videoUrl = rawVideo
+      ? (/^https?:\/\/|^\//.test(rawVideo) ? rawVideo : dataUrl(rawVideo))
       : undefined;
     const headDiam = hasInfo ? HEAD_INFO : HEAD_NORMAL;
     const terrainY = getTerrainY(position.lat, position.lng);
@@ -179,7 +183,9 @@ export async function createGeoJSONPointLayer(
               selectedIdx = null;
             };
 
-            if (imageUrl) {
+            if (videoUrl) {
+              projWalls.showWithVideo(p.title ?? "", p.information!, videoUrl);
+            } else if (imageUrl) {
               projWalls.showWithImage(p.title ?? "", p.information!, imageUrl);
             } else {
               projWalls.show(p.title ?? "", p.information!);

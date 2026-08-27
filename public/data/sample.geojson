@@ -205,6 +205,22 @@
     },
     {
       "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.388208,
+          68.713559
+        ]
+      },
+      "properties": {
+        "information": "3 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed vestibulum diam. Integer eget turpis congue libero vulputate imperdiet. Nulla pulvinar lorem ut malesuada scelerisque. Duis eget feugiat dolor.",
+        "video": "sample-video.mp4",
+        "title": "Infopoint3\nwith video",
+        "color": "#ff9d00"
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "animation": "wave"
       },

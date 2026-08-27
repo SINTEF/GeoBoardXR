@@ -101,12 +101,15 @@ if (xrHelper) {
 // 6. OSM Buildings
 // ---------------------------------------------------------------------------
 
+let _toastCount = 0;
 const showApiToast = (msg: string) => {
   const el = document.createElement("div");
   el.className = "api-toast";
   el.textContent = `⚠ ${msg}`;
+  el.style.bottom = `${24 + _toastCount * 56}px`;
+  _toastCount++;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 8000);
+  setTimeout(() => { el.remove(); _toastCount = Math.max(0, _toastCount - 1); }, 8000);
 };
 
 const { x: btx, y: bty, z: btz } = lngLatToTile(ANCHOR.lng, ANCHOR.lat, ANCHOR.zoom);

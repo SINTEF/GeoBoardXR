@@ -4,12 +4,13 @@ import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { ActionManager } from "@babylonjs/core/Actions/actionManager";
+import { ExecuteCodeAction } from "@babylonjs/core/Actions/directActions";
 
 export interface ProjectionWalls {
-  /** Show the same info panel on all 4 walls. */
   show(title: string, body: string): void;
-  /** Show text on 2 opposite walls (south/north) and an image on the other 2 (west/east). */
   showWithImage(title: string, body: string, imageUrl: string): void;
+  showWithVideo(title: string, body: string, videoUrl: string): void;
   hide(): void;
 }
 
@@ -153,8 +154,58 @@ export function createProjectionWalls(
     ctx.drawImage(img, (texW - dw) / 2, (texH - dh) / 2, dw, dh);
   }
 
+  function drawVideoFrame(ctx: CanvasRenderingContext2D, vid: HTMLVideoElement, paused: boolean): void {
+    ctx.clearRect(0, 0, texW, texH);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, texW, texH);
+    if (vid.readyState >= 2) {
+      const aspect = vid.videoWidth / (vid.videoHeight || 1);
+      let dw = texW, dh = texW / aspect;
+      if (dh > texH) { dh = texH; dw = texH * aspect; }
+      ctx.drawImage(vid, (texW - dw) / 2, (texH - dh) / 2, dw, dh);
+    }
+    if (paused) {
+      ctx.fillStyle = "rgba(0,0,0,0.38)";
+      ctx.fillRect(0, 0, texW, texH);
+      const cx = texW / 2, cy = texH / 2, r = texH * 0.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.fill();
+      const tr = r * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(cx + tr, cy);
+      ctx.lineTo(cx - tr * 0.6, cy - tr);
+      ctx.lineTo(cx - tr * 0.6, cy + tr);
+      ctx.closePath();
+      ctx.fillStyle = "#1565c0";
+      ctx.fill();
+    }
+  }
+
+  let activeVideo: HTMLVideoElement | null = null;
+  let activeObserver: ReturnType<typeof scene.onBeforeRenderObservable.add> | null = null;
+
+  function cleanupVideo(): void {
+    if (activeObserver) { scene.onBeforeRenderObservable.remove(activeObserver); activeObserver = null; }
+    if (activeVideo) {
+      activeVideo.pause();
+      activeVideo.currentTime = 0;
+      activeVideo.src = "";
+      activeVideo.remove();
+      activeVideo = null;
+    }
+    for (let i = 2; i < 4; i++) {
+      if (wallData[i].plane.actionManager) {
+        wallData[i].plane.actionManager!.dispose();
+        wallData[i].plane.actionManager = null;
+      }
+    }
+  }
+
   return {
     show(title: string, body: string) {
+      cleanupVideo();
       for (const { tex, ctx, plane } of wallData) {
         plane.setEnabled(true);
         drawWall(ctx, texW, texH, title, body);
@@ -162,7 +213,7 @@ export function createProjectionWalls(
       }
     },
     showWithImage(title: string, body: string, imageUrl: string) {
-      // Walls 0,1 (south/north) → text; walls 2,3 (west/east) → image
+      cleanupVideo();
       for (let i = 0; i < wallData.length; i++) {
         wallData[i].plane.setEnabled(true);
         if (i < 2) {
@@ -180,7 +231,64 @@ export function createProjectionWalls(
       };
       img.src = imageUrl;
     },
+    showWithVideo(title: string, body: string, videoUrl: string) {
+      cleanupVideo();
+
+      for (let i = 0; i < 2; i++) {
+        wallData[i].plane.setEnabled(true);
+        drawWall(wallData[i].ctx, texW, texH, title, body);
+        wallData[i].tex.update();
+      }
+
+      const vid = document.createElement("video");
+      vid.src = videoUrl;
+      vid.playsInline = true;
+      vid.preload = "auto";
+      vid.style.display = "none";
+      document.body.appendChild(vid);
+      activeVideo = vid;
+
+      let playing = false;
+
+      const redrawVideoWalls = () => {
+        for (let i = 2; i < 4; i++) {
+          drawVideoFrame(wallData[i].ctx, vid, !playing);
+          wallData[i].tex.update();
+        }
+      };
+
+      for (let i = 2; i < 4; i++) {
+        wallData[i].plane.setEnabled(true);
+        drawVideoFrame(wallData[i].ctx, vid, true);
+        wallData[i].tex.update();
+      }
+
+      vid.onloadeddata = () => redrawVideoWalls();
+      vid.onended = () => { playing = false; vid.currentTime = 0; redrawVideoWalls(); };
+
+      activeObserver = scene.onBeforeRenderObservable.add(() => {
+        if (playing) redrawVideoWalls();
+      });
+
+      const toggle = () => {
+        if (playing) {
+          vid.pause();
+          playing = false;
+        } else {
+          vid.play();
+          playing = true;
+        }
+        redrawVideoWalls();
+      };
+
+      for (let i = 2; i < 4; i++) {
+        const am = new ActionManager(scene);
+        am.registerAction(new ExecuteCodeAction(ActionManager.OnPickTrigger, toggle));
+        wallData[i].plane.actionManager = am;
+      }
+    },
     hide() {
+      cleanupVideo();
       for (const { plane } of wallData) plane.setEnabled(false);
     },
   };

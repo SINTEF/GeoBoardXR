@@ -1,4 +1,5 @@
 import { tileBoundsLngLat } from "../adapters/mapboxTerrainAdapter";
+import { fetchOverpass } from "./overpassFetch";
 
 export type BuildingType =
   | "residential" | "commercial" | "office" | "industrial"
@@ -43,16 +44,7 @@ export async function loadOSMBuildings(
 
   const { north, south, east, west } = tileBoundsLngLat(tx, ty, tz);
   const query = `[out:json][timeout:25];way["building"](${south},${west},${north},${east});out geom;`;
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-
-  let data: { elements: any[] };
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = await res.json();
-  } catch (err) {
-    throw err;
-  }
+  const data = await fetchOverpass(query);
 
   const buildings: OSMBuilding[] = [];
 

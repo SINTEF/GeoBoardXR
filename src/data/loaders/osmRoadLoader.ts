@@ -1,4 +1,5 @@
 import { tileBoundsLngLat } from "../adapters/mapboxTerrainAdapter";
+import { fetchOverpass } from "./overpassFetch";
 
 export type RoadType = "major" | "secondary" | "minor";
 
@@ -31,28 +32,21 @@ export async function loadOSMRoads(tx: number, ty: number, tz: number): Promise<
   const types = Object.keys(TYPE_MAP).join("|");
   const query = `[out:json][timeout:30];way["highway"~"^(${types})$"](${south},${west},${north},${east});out geom;`;
 
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+  const data = await fetchOverpass(query);
 
-    const roads: OSMRoad[] = [];
-    for (const el of data.elements) {
-      if (el.type !== "way" || !el.geometry || el.geometry.length < 2) continue;
-      const hw = el.tags?.highway as string;
-      const cfg = TYPE_MAP[hw];
-      if (!cfg) continue;
-      roads.push({
-        nodes: el.geometry.map((n: { lat: number; lon: number }) => ({ lat: n.lat, lng: n.lon })),
-        ...cfg,
-      });
-    }
-
-    console.log(`[OSM Roads] Loaded ${roads.length} roads`);
-    localStorage.setItem(cacheKey, JSON.stringify({ data: roads, ts: Date.now() }));
-    return roads;
-  } catch (err) {
-    throw err;
+  const roads: OSMRoad[] = [];
+  for (const el of data.elements) {
+    if (el.type !== "way" || !el.geometry || el.geometry.length < 2) continue;
+    const hw = el.tags?.highway as string;
+    const cfg = TYPE_MAP[hw];
+    if (!cfg) continue;
+    roads.push({
+      nodes: el.geometry.map((n: { lat: number; lon: number }) => ({ lat: n.lat, lng: n.lon })),
+      ...cfg,
+    });
   }
+
+  console.log(`[OSM Roads] Loaded ${roads.length} roads`);
+  localStorage.setItem(cacheKey, JSON.stringify({ data: roads, ts: Date.now() }));
+  return roads;
 }

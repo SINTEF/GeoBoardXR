@@ -29,6 +29,7 @@ export interface GeoJSONPointProps {
   "3dmodel"?: string;
   information?: string;
   image?: string;
+  video?: string;
 }
 
 export interface GeoJSONPolygonProps {
