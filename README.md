@@ -4,13 +4,13 @@ An interactive tabletop-scale VR terrain viewer built with BabylonJS and Mapbox 
 
 **VR and AR are supported** via the WebXR API. VR has been tested and is fully functional. AR works via WebXR passthrough but has not been tested or fine-tuned — proper surface anchoring, scaling, and occlusion are planned future work.
 
-Tested on: Brave desktop, Meta Quest 2.
+Tested on: Brave desktop, Meta Quest 2 and 3.
 
 ---
 
 ## Screenshots & Video
 
-▶ [Watch demo video](https://hcilab.no/geoboardxr/promo/geoboardxr-demo.mp4) - recorded on Meta Quest 2 via local IP (Wi-Fi) connection to a dev server
+▶ [Watch demo video](https://xrlab.no/geoboardxr/video/)
 
 | | |
 |---|---|
@@ -32,7 +32,7 @@ Tested on: Brave desktop, Meta Quest 2.
   - **Lines** — flat ribbons or vertical walls with labels
 - **Toggle buttons** — physical 3D buttons placed around the table edge, one per layer per side. Button width auto-fits the label text.
 - **WebXR** — VR and AR modes, teleportation locomotion, pointer selection, compatible with any OpenXR headset (Quest, Vive, Index, etc.).
-- **Caching & performance** — OSM data is cached in `localStorage` to avoid redundant API calls. The terrain mesh uses adaptive simplification (Martini RTIN) to keep polygon count low, making it viable on mobile GPUs such as the one in Meta Quest 2.
+- **Caching & performance** — OSM data is cached in `localStorage` to avoid redundant API calls. The terrain mesh uses adaptive simplification (Martini RTIN) to keep polygon count low, making it viable on mobile GPUs.
 
 **Datasets, APIs, and related visualizations have been previously tested on the open-source [GeoBed3D](https://github.com/SINTEF/GeoBed3D) testbed, developed by the [HCI group](https://www.sintef.no/en/digital/departments/sustainable-communication-technologies/human-computer-interaction/) - SINTEF Digital.**
 
@@ -154,12 +154,14 @@ The `name` field becomes the toggle button label.
     "color": "#ff0000",
     "information": "Text shown on walls when clicked.\nNewlines supported.",
     "image": "photo.jpg",
+    "video": "clip.mp4",
     "3dmodel": "model.glb"
   }
 }
 ```
 - Infopoints (with `information`) default to green `#23d110` and turn grayish-white when selected.
-- GLB files go in `public/data/` alongside the GeoJSON.
+- `video` and `image` are mutually exclusive — `video` takes priority. Videos play on two of the projection walls with a click-to-play/pause control; selecting a different infopoint resets playback to the beginning.
+- GLB files, images, and videos all go in `public/data/` alongside the GeoJSON.
 
 **Polygon**
 ```json
@@ -215,7 +217,7 @@ See [`public/data/buildings-legend.html`](public/data/buildings-legend.html) for
 
 ## Caching & Performance
 
-OSM buildings, roads, and place labels are fetched once from the [Overpass API](https://overpass-api.de/) and cached in `localStorage` for **7 days**, saving API calls and reducing load time on repeat visits. The terrain mesh is built with Martini RTIN adaptive simplification — triangle count scales with the `MAX_ERROR` constant in `main.ts`, keeping the scene lightweight enough for standalone mobile GPUs (tested on Meta Quest 2).
+OSM buildings, roads, and place labels are fetched once from the [Overpass API](https://overpass-api.de/) and cached in `localStorage` for **7 days**, saving API calls and reducing load time on repeat visits. The terrain mesh is built with Martini RTIN adaptive simplification — triangle count scales with the `MAX_ERROR` constant in `main.ts`, keeping the scene lightweight enough for standalone mobile GPUs (tested on Meta Quest 2 and 3).
 
 To force a full data refresh:
 
@@ -285,12 +287,12 @@ src/
 Contributions are welcome. Open an issue to discuss before starting:
 
 - **Region switching robustness** — thorough testing of geographic region switching to surface and resolve edge cases, race conditions, and loading bugs across terrain, OSM, and data layers
-- **Overpass API resilience** — OSM data (buildings, roads, place labels) is fetched from the public `overpass-api.de` endpoint, which has no availability guarantees. Adding fallback rotation across community mirrors (`overpass.kumi.systems`, `overpass.openstreetmap.ru`) would make the first-load experience significantly more reliable
+- ~~**Overpass API resilience** — OSM data (buildings, roads, place labels) is fetched from the public `overpass-api.de` endpoint, which has no availability guarantees. Adding fallback rotation across community mirrors (`overpass.kumi.systems`, `overpass.openstreetmap.ru`) would make the first-load experience significantly more reliable~~
 - **AR tuning** — AR mode works via WebXR passthrough but needs calibration for table-scale placement and occlusion on different devices
 - **Bathymetry & ocean terrain** — integrate seafloor elevation data and ocean current / water column datasets as dedicated layers
 - **Fuzzy cognitive maps** — visualise FCM nodes and weighted edges as an interactive 3D graph layer on the terrain
 - **Avatars & multi-user** — shared presence in the same geographic space, with avatar representation and synchronised layer toggles
-- **Video projection** — play video content on the projection walls in the scene, alongside images and text
+- ~~**Video projection** — play video content on the projection walls in the scene, alongside images and text~~
 - **Live data integration** — connect to external APIs to stream real-time data (sensor feeds, live ocean data, traffic, etc.)
 - **CMS / API layer** — a backend content and data management layer for GeoBed3D, enabling organisations to publish, version, and serve geospatial datasets directly to the platform (Sanity.io? Pocketbase?)
 
