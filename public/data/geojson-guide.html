@@ -168,7 +168,13 @@
       <td><code>3dmodel</code> <span class="tag opt">optional</span></td>
       <td>string (filename)</td>
       <td>—</td>
-      <td>Filename of a <code>.glb</code> file placed in <code>public/data/</code> (e.g. <code>"tree.glb"</code>). Replaces the default stick+sphere with the 3-D model, scaled to fit pin height automatically. A click target is still present for interaction.</td>
+      <td>Filename of a <code>.glb</code> file placed in <code>public/data/</code> (e.g. <code>"tree.glb"</code>). Replaces the default stick+sphere with the 3-D model, scaled to fit pin height automatically. A click target is still present — <code>information</code>, <code>image</code>, <code>video</code>, and <code>color</code> all work alongside it.</td>
+    </tr>
+    <tr>
+      <td><code>modelscale</code> <span class="tag opt">optional</span></td>
+      <td>number (multiplier)</td>
+      <td><code>1</code></td>
+      <td>Scale multiplier applied on top of the automatic pin-height scaling. <code>2</code> = twice as large, <code>0.5</code> = half size. Only has effect when <code>3dmodel</code> is set.</td>
     </tr>
   </table>
 
@@ -207,14 +213,17 @@
   }
 }
 
-<span class="cmt">// 3-D model pin</span>
+<span class="cmt">// 3-D model pin with scale override and info panel</span>
 {
   <span class="key">"type"</span>: <span class="str">"Feature"</span>,
   <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.43</span>, <span class="num">68.71</span>] },
   <span class="key">"properties"</span>: {
     <span class="key">"title"</span>: <span class="str">"Buoy"</span>,
-    <span class="key">"3d_model"</span>: <span class="str">"https://example.com/models/buoy.glb"</span>,
-    <span class="key">"information"</span>: <span class="str">"Oceanographic buoy #12"</span>
+    <span class="key">"color"</span>: <span class="str">"#0a5ade"</span>,
+    <span class="key">"3dmodel"</span>: <span class="str">"buoy.glb"</span>,
+    <span class="key">"modelscale"</span>: <span class="num">2</span>,
+    <span class="key">"information"</span>: <span class="str">"Oceanographic buoy #12"</span>,
+    <span class="key">"image"</span>: <span class="str">"buoy_photo.jpg"</span>
   }
 }</pre>
 
@@ -470,7 +479,8 @@
     <tr><td><code>information</code></td>  <td>Point</td>         <td>String — enables click interaction</td></tr>
     <tr><td><code>image</code></td>        <td>Point</td>         <td>Filename or URL — requires <code>information</code>; ignored if <code>video</code> is set</td></tr>
     <tr><td><code>video</code></td>        <td>Point</td>         <td>MP4 filename in <code>public/data/</code> — requires <code>information</code>; takes priority over <code>image</code></td></tr>
-    <tr><td><code>3d_model</code></td>     <td>Point</td>         <td>URL to <code>.glb</code> / <code>.gltf</code></td></tr>
+    <tr><td><code>3dmodel</code></td>       <td>Point</td>         <td>Filename of a <code>.glb</code> in <code>public/data/</code></td></tr>
+    <tr><td><code>modelscale</code></td>   <td>Point</td>         <td>Number multiplier, default <code>1</code> — only with <code>3dmodel</code></td></tr>
     <tr><td><code>opacity</code></td>      <td>Polygon</td>       <td>Integer 0–100 (default <code>70</code>)</td></tr>
     <tr><td><code>animation</code></td>    <td>Polygon</td>       <td><code>"fire"</code> or <code>"wave"</code></td></tr>
     <tr><td><code>linewidth</code></td>    <td>LineString</td>    <td>Metres, default <code>3</code></td></tr>

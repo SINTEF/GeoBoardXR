@@ -91,9 +91,14 @@ export function createGeoJSONPolygonLayer(
   getTerrainY: (lat: number, lng: number) => number,
 ): Mesh[] {
   const meshes: Mesh[] = [];
+  const { minimumWorld, maximumWorld } = terrainMesh.groundMesh.getBoundingInfo().boundingBox;
 
   for (let idx = 0; idx < features.length; idx++) {
     const { nodes, centroid, properties: p } = features[idx];
+
+    const centroidWorld = terrainMesh.latLngToScaledWorld({ lat: centroid.lat, lng: centroid.lng, altitude: 0 });
+    if (centroidWorld.x < minimumWorld.x || centroidWorld.x > maximumWorld.x ||
+        centroidWorld.z < minimumWorld.z || centroidWorld.z > maximumWorld.z) continue;
 
     const color   = p.color ? hexToColor3(p.color) : new Color3(0.53, 0.81, 0.98);
     const opacity = p.opacity !== undefined ? p.opacity / 100 : 0.7;
@@ -123,7 +128,6 @@ export function createGeoJSONPolygonLayer(
       ...nodes.map(n => getTerrainY(n.lat, n.lng)),
       getTerrainY(centroid.lat, centroid.lng),
     );
-    const centroidWorld = terrainMesh.latLngToScaledWorld({ lat: centroid.lat, lng: centroid.lng, altitude: 0 });
     polyMesh.position.set(centroidWorld.x, maxTerrainY + 0.001, centroidWorld.z);
     polyMesh.renderingGroupId = 1;
 

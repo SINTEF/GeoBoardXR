@@ -99,8 +99,9 @@ export function createBuildingLayer(
     const result = group.length === 1
       ? group[0]
       : (Mesh.MergeMeshes(group, true, true) ?? group[0]);
-    result.name     = `buildings-${type}`;
-    result.material = mats.get(type)!;
+    result.name            = `buildings-${type}`;
+    result.material        = mats.get(type)!;
+    result.renderingGroupId = 1;
     merged.push(result);
   }
 

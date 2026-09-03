@@ -25,10 +25,16 @@ export function createGeoJSONLineLayer(
   getTerrainY: (lat: number, lng: number) => number,
 ): Mesh[] {
   const meshes: Mesh[] = [];
+  const { minimumWorld, maximumWorld } = terrainMesh.groundMesh.getBoundingInfo().boundingBox;
 
   for (let idx = 0; idx < features.length; idx++) {
     const { nodes, properties: p } = features[idx];
     if (nodes.length < 2) continue;
+
+    const mid = nodes[Math.floor(nodes.length / 2)];
+    const midWorld = terrainMesh.latLngToScaledWorld({ lat: mid.lat, lng: mid.lng, altitude: 0 });
+    if (midWorld.x < minimumWorld.x || midWorld.x > maximumWorld.x ||
+        midWorld.z < minimumWorld.z || midWorld.z > maximumWorld.z) continue;
 
     const color      = p.color ? hexToColor3(p.color) : new Color3(1, 0.1, 0.1); // red default
     const halfW      = ((p.linewidth ?? 3) / 2) * meshScale;
@@ -74,7 +80,7 @@ export function createGeoJSONLineLayer(
     mat.specularColor = Color3.Black();
     mat.backFaceCulling = false; // visible from both sides (wall + flat)
     ribbon.material         = mat;
-    ribbon.renderingGroupId = 2;
+    ribbon.renderingGroupId = 1;
     meshes.push(ribbon);
 
     // ---- Label at midpoint node ----

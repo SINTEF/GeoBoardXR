@@ -80,6 +80,7 @@ export async function createGeoJSONPointLayer(
     const mat = pinMaterial(color, scene);
 
     let headMesh: Mesh;
+    let glbMeshes: Mesh[] = [];
 
     if (p["3dmodel"]) {
       // ---- GLB model replaces the default stick+bubble ----
@@ -100,7 +101,7 @@ export async function createGeoJSONPointLayer(
           }
           const modelH = maxY - minY || 1;
           const totalPinH = PIN_HEIGHT + headDiam;
-          const scale = totalPinH / modelH;
+          const scale = (totalPinH / modelH) * (p.modelscale ?? 1);
           const cx = (minX + maxX) / 2;
           const cz = (minZ + maxZ) / 2;
 
@@ -112,12 +113,14 @@ export async function createGeoJSONPointLayer(
             terrainY - minY * scale,
             base.z - cz * scale,
           );
-          meshes.push(...allMeshes.filter((m): m is Mesh => m instanceof Mesh));
+          glbMeshes = allMeshes.filter((m): m is Mesh => m instanceof Mesh);
+          glbMeshes.forEach(m => { m.renderingGroupId = 1; });
+          meshes.push(...glbMeshes);
         }
       } catch (e) {
         console.warn(`[GeoJSON] Failed to load 3dmodel: ${p["3dmodel"]}`, e);
       }
-      // Invisible hit-target sphere for click interaction
+      // Invisible hit-target sphere — fallback if GLB has no pickable geometry
       headMesh = CreateSphere(`gj-hittest-${idx}`, { diameter: headDiam, segments: 4 }, scene);
       headMesh.position.set(base.x, terrainY + PIN_HEIGHT, base.z);
       headMesh.isVisible = false;
@@ -153,46 +156,47 @@ export async function createGeoJSONPointLayer(
 
     // ---- Interaction: click toggles info on projection walls ----
     if (hasInfo) {
-      headMesh.actionManager = new ActionManager(scene);
-      headMesh.actionManager.registerAction(
-        new ExecuteCodeAction(ActionManager.OnPickTrigger, () => {
-          if (selectedIdx === idx) {
-            // Deselect — restore original colour
+      const onPick = () => {
+        if (selectedIdx === idx) {
+          if (restoreCurrentPin) { restoreCurrentPin(); restoreCurrentPin = null; }
+          selectedIdx = null;
+          pinState.clearSelection = () => {};
+          projWalls.hide();
+        } else {
+          pinState.clearSelection();
+          if (restoreCurrentPin) { restoreCurrentPin(); }
+
+          selectedIdx = idx;
+          restoreCurrentPin = () => {
+            mat.diffuseColor  = color;
+            mat.emissiveColor = color;
+          };
+          mat.diffuseColor  = SEL_COLOR;
+          mat.emissiveColor = SEL_COLOR;
+
+          pinState.clearSelection = () => {
             if (restoreCurrentPin) { restoreCurrentPin(); restoreCurrentPin = null; }
             selectedIdx = null;
-            pinState.clearSelection = () => {};
-            projWalls.hide();
+          };
+
+          if (videoUrl) {
+            projWalls.showWithVideo(p.title ?? "", p.information!, videoUrl);
+          } else if (imageUrl) {
+            projWalls.showWithImage(p.title ?? "", p.information!, imageUrl);
           } else {
-            // Clear selection in other layers
-            pinState.clearSelection();
-            // Restore any previously selected pin in this layer
-            if (restoreCurrentPin) { restoreCurrentPin(); }
-
-            selectedIdx = idx;
-            // Capture restore for this pin (closes over mat and color)
-            restoreCurrentPin = () => {
-              mat.diffuseColor  = color;
-              mat.emissiveColor = color;
-            };
-            mat.diffuseColor  = SEL_COLOR;
-            mat.emissiveColor = SEL_COLOR;
-
-            // Let other layers deselect us if they get clicked
-            pinState.clearSelection = () => {
-              if (restoreCurrentPin) { restoreCurrentPin(); restoreCurrentPin = null; }
-              selectedIdx = null;
-            };
-
-            if (videoUrl) {
-              projWalls.showWithVideo(p.title ?? "", p.information!, videoUrl);
-            } else if (imageUrl) {
-              projWalls.showWithImage(p.title ?? "", p.information!, imageUrl);
-            } else {
-              projWalls.show(p.title ?? "", p.information!);
-            }
+            projWalls.show(p.title ?? "", p.information!);
           }
-        })
-      );
+        }
+      };
+
+      // Register on the invisible sphere (fallback) + all GLB meshes so clicking
+      // anywhere on the model triggers the info panel regardless of scale
+      const clickTargets = glbMeshes.length > 0 ? glbMeshes : [headMesh];
+      clickTargets.push(headMesh);
+      for (const m of clickTargets) {
+        m.actionManager = new ActionManager(scene);
+        m.actionManager.registerAction(new ExecuteCodeAction(ActionManager.OnPickTrigger, onPick));
+      }
     }
   }
 
