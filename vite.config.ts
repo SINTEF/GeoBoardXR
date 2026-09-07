@@ -23,40 +23,57 @@ function geojsonManifestPlugin() {
   };
 }
 
-export default defineConfig(({ command, mode }) => ({
-	plugins: [mode === "development" && basicSsl(), geojsonManifestPlugin()].filter(Boolean),
-	base: command === "build" ? "/geoboardxr/" : "/",
-	server: {
-		watch: {
-			usePolling: true, // force vite to watch for the updates
-		},
-		host: "0.0.0.0",
-		port: 5173,
-	},
-	// Rollup code-splitting incorrectly pairs GLSL and WGSL shader include chunks across
-	// @babylonjs packages (e.g. the GLSL default.vertex chunk gets the WGSL defaultUboDeclaration
-	// and vice versa). When the wrong include isn't found in the store, BabylonJS falls back
-	// to fetching ShadersInclude/*.fx from the server — which 404s — and isReady() hangs
-	// forever, producing a black screen. Keeping all BabylonJS code in one chunk prevents
-	// the cross-contamination between GLSL and WGSL variants.
-	build: {
-		rollupOptions: {
-			output: {
-				manualChunks(id: string) {
-					if (id.includes("/node_modules/@babylonjs/")) {
-						return "babylon";
-					}
-				},
-			},
-		},
-	},
-	// BabylonJS uses conditional dynamic import() calls for shaders (e.g. rgbdDecode).
-	// Vite's esbuild pre-bundler flattens node_modules into chunks in .vite/deps/,
-	// which breaks those relative paths at runtime — the browser fetches a missing URL
-	// and receives the HTML 404 fallback, which then appears as the shader source.
-	// Excluding these packages from pre-bundling keeps the original file layout intact
-	// so dynamic imports resolve correctly.
-	optimizeDeps: {
-		exclude: ["@babylonjs/core", "@babylonjs/gui", "@babylonjs/loaders", "@babylonjs/materials"],
-	},
-}));
+export default defineConfig(({ command, mode }) => {
+  return {
+    plugins: [mode === "development" && basicSsl(), geojsonManifestPlugin()].filter(Boolean),
+    base: command === "build" ? "/geoboardxr/" : "/",
+    server: {
+      watch: { usePolling: true },
+      host: "0.0.0.0",
+      port: 5173,
+      // ── BarentsWatch AIS dev proxy ──────────────────────────────────────────
+      // BarentsWatch token and AIS endpoints block browser CORS requests, so we
+      // route them through Vite's built-in proxy (Node.js → BarentsWatch,
+      // same-origin from the browser's perspective → no CORS issue).
+      // Credentials are injected server-side via the token request body; they
+      // live in .env and are never baked into the production bundle.
+      // In production the PHP file public/api/ais.php does the same job.
+      proxy: {
+        "/bw-token": {
+          target:      "https://id.barentswatch.no",
+          changeOrigin: true,
+          rewrite:     (path) => path.replace(/^\/bw-token/, ""),
+        },
+        "/bw-ais": {
+          target:      "https://live.ais.barentswatch.no",
+          changeOrigin: true,
+          rewrite:     (path) => path.replace(/^\/bw-ais/, ""),
+        },
+      },
+    },
+    // Rollup code-splitting incorrectly pairs GLSL and WGSL shader include chunks across
+    // @babylonjs packages (e.g. the GLSL default.vertex chunk gets the WGSL defaultUboDeclaration
+    // and vice versa). When the wrong include isn't found in the store, BabylonJS falls back
+    // to fetching ShadersInclude/*.fx from the server — which 404s — and isReady() hangs
+    // forever, producing a black screen. Keeping all BabylonJS code in one chunk prevents
+    // the cross-contamination between GLSL and WGSL variants.
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes("/node_modules/@babylonjs/")) return "babylon";
+          },
+        },
+      },
+    },
+    // BabylonJS uses conditional dynamic import() calls for shaders (e.g. rgbdDecode).
+    // Vite's esbuild pre-bundler flattens node_modules into chunks in .vite/deps/,
+    // which breaks those relative paths at runtime — the browser fetches a missing URL
+    // and receives the HTML 404 fallback, which then appears as the shader source.
+    // Excluding these packages from pre-bundling keeps the original file layout intact
+    // so dynamic imports resolve correctly.
+    optimizeDeps: {
+      exclude: ["@babylonjs/core", "@babylonjs/gui", "@babylonjs/loaders", "@babylonjs/materials"],
+    },
+  };
+});

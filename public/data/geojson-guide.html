@@ -176,6 +176,12 @@
       <td><code>1</code></td>
       <td>Scale multiplier applied on top of the automatic pin-height scaling. <code>2</code> = twice as large, <code>0.5</code> = half size. Only has effect when <code>3dmodel</code> is set.</td>
     </tr>
+    <tr>
+      <td><code>modelrotate</code> <span class="tag opt">optional</span></td>
+      <td>number (degrees)</td>
+      <td><code>0</code></td>
+      <td>Rotates the 3-D model around the vertical axis, clockwise, compass-style. <code>0</code> = original model orientation, <code>90</code> = facing East, <code>180</code> = flipped, <code>270</code> = facing West. Only has effect when <code>3dmodel</code> is set.</td>
+    </tr>
   </table>
 
   <h3>Examples</h3>
@@ -222,6 +228,7 @@
     <span class="key">"color"</span>: <span class="str">"#0a5ade"</span>,
     <span class="key">"3dmodel"</span>: <span class="str">"buoy.glb"</span>,
     <span class="key">"modelscale"</span>: <span class="num">2</span>,
+    <span class="key">"modelrotate"</span>: <span class="num">90</span>,
     <span class="key">"information"</span>: <span class="str">"Oceanographic buoy #12"</span>,
     <span class="key">"image"</span>: <span class="str">"buoy_photo.jpg"</span>
   }
@@ -481,6 +488,7 @@
     <tr><td><code>video</code></td>        <td>Point</td>         <td>MP4 filename in <code>public/data/</code> — requires <code>information</code>; takes priority over <code>image</code></td></tr>
     <tr><td><code>3dmodel</code></td>       <td>Point</td>         <td>Filename of a <code>.glb</code> in <code>public/data/</code></td></tr>
     <tr><td><code>modelscale</code></td>   <td>Point</td>         <td>Number multiplier, default <code>1</code> — only with <code>3dmodel</code></td></tr>
+    <tr><td><code>modelrotate</code></td>  <td>Point</td>         <td>Degrees clockwise (compass), default <code>0</code> — only with <code>3dmodel</code></td></tr>
     <tr><td><code>opacity</code></td>      <td>Polygon</td>       <td>Integer 0–100 (default <code>70</code>)</td></tr>
     <tr><td><code>animation</code></td>    <td>Polygon</td>       <td><code>"fire"</code> or <code>"wave"</code></td></tr>
     <tr><td><code>linewidth</code></td>    <td>LineString</td>    <td>Metres, default <code>3</code></td></tr>

@@ -108,6 +108,8 @@ export async function createGeoJSONPointLayer(
           // Move root: bottom sits at terrainY, centred on the pin's lat/lng
           const root = allMeshes[0];
           root.scaling.scaleInPlace(scale);
+          root.rotationQuaternion = null; // GLB imports set this; must clear it before rotation.y works
+          root.rotation.y = ((p.modelrotate ?? 0) as number) * (Math.PI / 180);
           root.position.set(
             base.x - cx * scale,
             terrainY - minY * scale,

@@ -14,10 +14,11 @@ Tested on: Brave desktop, Meta Quest 2 and 3.
 
 | | |
 |---|---|
-| ![Tabletop view 1](https://hcilab.no/geoboardxr/promo/tabletop1.png) | ![Tabletop view 2](https://hcilab.no/geoboardxr/promo/tabletop2.png) |
-| ![Overview 1](https://hcilab.no/geoboardxr/promo/overview1.png?v=2) | ![Overview 2](https://hcilab.no/geoboardxr/promo/overview2.png) |
-| ![Navigation](https://hcilab.no/geoboardxr/promo/navigation.png) | ![Animation](https://hcilab.no/geoboardxr/promo/animation.png) |
-| ![3D model icon](https://hcilab.no/geoboardxr/promo/3dmodelicon.png) | |
+| ![Tabletop view 1](https://xrlab.no/geoboardxr/photo/tabletop1.png) | ![Tabletop view 2](https://xrlab.no/geoboardxr/photo/tabletop2.png) |
+| ![Overview 1](https://xrlab.no/geoboardxr/photo/overview1.png) | ![Overview 2](https://xrlab.no/geoboardxr/photo/overview2.png) |
+| ![Navigation](https://xrlab.no/geoboardxr/photo/navigation.png) | ![Animation](https://xrlab.no/geoboardxr/photo/animation.png) |
+| ![3D model icon](https://xrlab.no/geoboardxr/photo/3dmodelicon.png) | ![Boats LIVE](https://xrlab.no/geoboardxr/photo/boats.png) |
+| ![Photos](https://xrlab.no/geoboardxr/photo/photos.png) | |
 
 ---
 
@@ -30,6 +31,9 @@ Tested on: Brave desktop, Meta Quest 2 and 3.
   - **Points** — stick + bubble pins, optional 3D GLB model, click-to-show info on projection walls
   - **Polygons** — coloured fill, fire particle animation, or wave animation
   - **Lines** — flat ribbons or vertical walls with labels
+- **Wikimedia Commons photos** — geotagged photos near the terrain tile are fetched from the Wikimedia Commons API and placed as 3D camera icons on the terrain surface. Clicking an icon shows the photo and metadata on the projection walls.
+- **Country-specific API gating** — a `COUNTRY` constant in `main.ts` controls which country-specific layers and APIs are loaded for the current scene. Set it to the target country (e.g. `"norway"`) and only the APIs relevant to that region are activated. Global APIs (OSM, Wikimedia Commons) always load regardless of `COUNTRY`. This makes it straightforward to adapt the app to a different geographic region without leaving unused API calls or credential requirements active.
+- **Live AIS vessels (Norway)** — real-time vessel positions from the [BarentsWatch Live AIS API](https://developer.barentswatch.no/) are rendered as animated 3D boat models on the terrain. Clicking a vessel shows its name, type, speed, heading, and other AIS data on the projection walls. Requires BarentsWatch API credentials in `.env`. Country-gated via the `COUNTRY` constant in `main.ts`.
 - **Toggle buttons** — physical 3D buttons placed around the table edge, one per layer per side. Button width auto-fits the label text.
 - **WebXR** — VR and AR modes, teleportation locomotion, pointer selection, compatible with any OpenXR headset (Quest, Vive, Index, etc.).
 - **Caching & performance** — OSM data is cached in `localStorage` to avoid redundant API calls. The terrain mesh uses adaptive simplification (Martini RTIN) to keep polygon count low, making it viable on mobile GPUs.
@@ -155,13 +159,17 @@ The `name` field becomes the toggle button label.
     "information": "Text shown on walls when clicked.\nNewlines supported.",
     "image": "photo.jpg",
     "video": "clip.mp4",
-    "3dmodel": "model.glb"
+    "3dmodel": "model.glb",
+    "modelscale": 2.0,
+    "modelrotate": 90
   }
 }
 ```
 - Infopoints (with `information`) default to green `#23d110` and turn grayish-white when selected.
 - `video` and `image` are mutually exclusive — `video` takes priority. Videos play on two of the projection walls with a click-to-play/pause control; selecting a different infopoint resets playback to the beginning.
 - GLB files, images, and videos all go in `public/data/` alongside the GeoJSON.
+- `modelscale` multiplies the default auto-fit scale of the GLB (default `1`). Use values above `1` to enlarge, below `1` to shrink.
+- `modelrotate` rotates the GLB around the vertical axis in degrees, clockwise, compass-style (0 = original orientation, 90 = turned to face East, 180 = flipped, 270 = facing West). Default `0`.
 
 **Polygon**
 ```json
@@ -245,7 +253,9 @@ src/
 │       ├── geojsonLoader.ts         # GeoJSON FeatureCollection parser
 │       ├── osmBuildingLoader.ts     # Overpass API — buildings (localStorage cache)
 │       ├── osmRoadLoader.ts         # Overpass API — roads   (localStorage cache)
-│       └── osmPlaceLoader.ts        # Overpass API — places  (localStorage cache)
+│       ├── osmPlaceLoader.ts        # Overpass API — places  (localStorage cache)
+│       ├── aisLoader.ts             # BarentsWatch Live AIS API — vessel positions
+│       └── wikimediaLoader.ts       # Wikimedia Commons — geotagged photos
 ├── scene/
 │   ├── SceneManager.ts              # BabylonJS engine + scene factory
 │   ├── TerrainMesh.ts               # terrain mesh + lat/lng ↔ world coord API
@@ -255,6 +265,8 @@ src/
 │   ├── GeoJSONPointLayer.ts         # pins, GLB models, click-to-info
 │   ├── GeoJSONPolygonLayer.ts       # filled polygons, fire, wave
 │   ├── GeoJSONLineLayer.ts          # road/wall ribbons with labels
+│   ├── BoatLayer.ts                 # live AIS vessel models + click-to-info
+│   ├── WikimediaLayer.ts            # geotagged photo icons + click-to-show
 │   ├── ToggleButtons.ts             # 3D toggle buttons around table edge
 │   ├── ProjectionWalls.ts           # info display panels (text + image)
 │   ├── Table.ts                     # physical table mesh

@@ -31,6 +31,10 @@ import { createDebugOverlay } from "./scene/DebugHelpers";
 import { createTable } from "./scene/Table";
 import { createRoom } from "./scene/Room";
 import { createProjectionWalls } from "./scene/ProjectionWalls";
+import { loadAISVessels } from "./data/loaders/aisLoader";
+import { createBoatLayer } from "./scene/BoatLayer";
+import { loadWikimediaPhotos } from "./data/loaders/wikimediaLoader";
+import { createWikimediaLayer } from "./scene/WikimediaLayer";
 import { dataUrl } from "./utils";
 
 import "./style.css";
@@ -38,6 +42,7 @@ import "./style.css";
 const DEBUG = import.meta.env.DEV;
 
 const ANCHOR            = { lat: 68.69373915809578, lng: 15.402189541432762, zoom: 10 };
+const COUNTRY           = "norway"; // country-specific APIs are gated on this value
 const ELEV_EXAGGERATION = 1;
 const MESH_SCALE        = 0.0008;
 const MAX_ERROR         = 5;
@@ -147,6 +152,40 @@ const toggleLayers: ToggleLayer[] = [
   { label: "Roads",     meshes: roadMeshes     },
   { label: "Labels",    meshes: labelMeshes    },
 ];
+
+// ---------------------------------------------------------------------------
+// 8. Wikimedia Commons — geotagged photos (global, no country gate)
+// ---------------------------------------------------------------------------
+
+let wikimediaMeshes: import("@babylonjs/core/Meshes/mesh").Mesh[] = [];
+try {
+  const photos = await loadWikimediaPhotos(tileBounds);
+  wikimediaMeshes = await createWikimediaLayer(photos, terrainMesh, scene, getTerrainY, projWalls, pinState);
+} catch (e) {
+  showApiToast("Wikimedia Commons photos are unreachable — try again later");
+  console.warn("[Wikimedia] Failed:", e);
+}
+if (wikimediaMeshes.length > 0) toggleLayers.push({ label: "Photos", meshes: wikimediaMeshes });
+
+// ---------------------------------------------------------------------------
+// 9. Country-specific API layers
+//    Each block is gated on COUNTRY. Add new countries here following the
+//    same pattern. Boats LIVE is placed before GeoJSON so it sits second to
+//    last in the toggle row; GeoJSON layers occupy the final slot(s).
+// ---------------------------------------------------------------------------
+
+if (COUNTRY === "norway") {
+  // BarentsWatch AIS — live vessel positions (Norway only)
+  let boatMeshes: import("@babylonjs/core/Meshes/mesh").Mesh[] = [];
+  try {
+    const aisVessels = await loadAISVessels(tileBounds);
+    boatMeshes = await createBoatLayer(aisVessels, terrainMesh, scene, getTerrainY, tileBounds, projWalls, pinState);
+  } catch (e) {
+    showApiToast("Live vessel data (BarentsWatch AIS) is unreachable — try again later");
+    console.warn("[AIS] Failed:", e);
+  }
+  toggleLayers.push({ label: "Boats LIVE", meshes: boatMeshes });
+}
 
 for (const filename of geojsonFiles) {
   try {

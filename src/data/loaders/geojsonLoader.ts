@@ -28,6 +28,7 @@ export interface GeoJSONPointProps {
   color?: string;
   "3dmodel"?: string;
   modelscale?: number;
+  modelrotate?: number;
   information?: string;
   image?: string;
   video?: string;

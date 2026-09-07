@@ -186,6 +186,7 @@
       "properties": {
         "3dmodel": "sample-fishfarm.glb",
         "modelscale": 0.05,
+        "modelrotate": 90,
         "title": "Fish farm",
         "information": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed vestibulum diam. Integer eget turpis congue libero vulputate imperdiet. Nulla pulvinar lorem ut malesuada scelerisque. Duis eget feugiat dolor.",
         "image": "sample-fishfarm-image.jpg"
