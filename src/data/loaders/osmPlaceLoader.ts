@@ -23,7 +23,7 @@ export async function loadOSMPlaces(tx: number, ty: number, tz: number): Promise
 
   const { north, south, east, west } = tileBoundsLngLat(tx, ty, tz);
 
-  const query = `[out:json][timeout:25];node["place"]["name"](${south},${west},${north},${east});out;`;
+  const query = `[out:json][timeout:60];node["place"]["name"](${south},${west},${north},${east});out;`;
 
   const data = await fetchOverpass(query);
 

@@ -81,7 +81,41 @@ function subdivide(
   return { positions: new Float32Array(pos), indices: idx };
 }
 
+// Set to false to restore diffuse+specular lighting on static polygons.
+const FLAT_SHADING = true;
+
+// ── Sutherland-Hodgman polygon clip against an axis-aligned rectangle ────────
+
+function clipPolygonToRect(poly: Vector2[], x0: number, x1: number, y0: number, y1: number): Vector2[] {
+  function clipEdge(pts: Vector2[], inside: (p: Vector2) => boolean, intersect: (a: Vector2, b: Vector2) => Vector2): Vector2[] {
+    if (pts.length === 0) return [];
+    const out: Vector2[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const cur = pts[i], prv = pts[(i + pts.length - 1) % pts.length];
+      const ci = inside(cur), pi = inside(prv);
+      if (ci) { if (!pi) out.push(intersect(prv, cur)); out.push(cur); }
+      else if (pi) out.push(intersect(prv, cur));
+    }
+    return out;
+  }
+  function lerp2(a: Vector2, b: Vector2, t: number) { return new Vector2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t); }
+  let p = poly;
+  p = clipEdge(p, v => v.x >= x0, (a, b) => { const d = b.x - a.x; return d === 0 ? new Vector2(x0, a.y) : lerp2(a, b, (x0 - a.x) / d); });
+  p = clipEdge(p, v => v.x <= x1, (a, b) => { const d = b.x - a.x; return d === 0 ? new Vector2(x1, a.y) : lerp2(a, b, (x1 - a.x) / d); });
+  p = clipEdge(p, v => v.y >= y0, (a, b) => { const d = b.y - a.y; return d === 0 ? new Vector2(a.x, y0) : lerp2(a, b, (y0 - a.y) / d); });
+  p = clipEdge(p, v => v.y <= y1, (a, b) => { const d = b.y - a.y; return d === 0 ? new Vector2(a.x, y1) : lerp2(a, b, (y1 - a.y) / d); });
+  return p;
+}
+
 // ── Layer builder ─────────────────────────────────────────────────────────────
+
+type PolyGroup = {
+  positions: number[];
+  indices:   number[];
+  normals:   number[];
+  color:     Color3;
+  opacity:   number;
+};
 
 export function createGeoJSONPolygonLayer(
   features: PolygonFeature<GeoJSONPolygonProps>[],
@@ -92,22 +126,51 @@ export function createGeoJSONPolygonLayer(
 ): Mesh[] {
   const meshes: Mesh[] = [];
   const { minimumWorld, maximumWorld } = terrainMesh.groundMesh.getBoundingInfo().boundingBox;
+  const minX = minimumWorld.x, maxX = maximumWorld.x;
+  const minZ = minimumWorld.z, maxZ = maximumWorld.z;
 
-  for (let idx = 0; idx < features.length; idx++) {
+  // Fewer subdivision levels for large files so the merged vertex count stays manageable.
+  // Level 0 = raw earcut only (no subdivision) for very large files like arealtyper.
+  const regularSubdivLevels = features.length > 5_000 ? 0 : features.length > 500 ? 2 : 3;
+
+  // Regular (non-animated) polygons are merged per opacity into one mesh each.
+  // Vertex colors carry per-polygon colour so a single material suffices.
+  // Features are processed in REVERSE index order so that feature 0's triangles
+  // end up LAST in the GPU buffer; with LEQUAL depth, the last fragment at a given
+  // depth wins — meaning feature 0 always covers any later overlapping polygon.
+  const polyGroups = new Map<string, PolyGroup>();
+
+  for (let idx = features.length - 1; idx >= 0; idx--) {
     const { nodes, centroid, properties: p } = features[idx];
 
     const centroidWorld = terrainMesh.latLngToScaledWorld({ lat: centroid.lat, lng: centroid.lng, altitude: 0 });
-    if (centroidWorld.x < minimumWorld.x || centroidWorld.x > maximumWorld.x ||
-        centroidWorld.z < minimumWorld.z || centroidWorld.z > maximumWorld.z) continue;
+    // Reject only if the polygon's full node bounding box is entirely outside the tile.
+    const cosLatBbox = Math.cos(centroid.lat * Math.PI / 180);
+    let pMinX = Infinity, pMaxX = -Infinity, pMinZ = Infinity, pMaxZ = -Infinity;
+    for (const n of nodes) {
+      const wx = centroidWorld.x + (n.lng - centroid.lng) * cosLatBbox * 111_320 * meshScale;
+      const wz = centroidWorld.z + (n.lat - centroid.lat) * 110_540 * meshScale;
+      if (wx < pMinX) pMinX = wx; if (wx > pMaxX) pMaxX = wx;
+      if (wz < pMinZ) pMinZ = wz; if (wz > pMaxZ) pMaxZ = wz;
+    }
+    if (pMaxX < minX || pMinX > maxX || pMaxZ < minZ || pMinZ > maxZ) continue;
 
     const color   = p.color ? hexToColor3(p.color) : new Color3(0.53, 0.81, 0.98);
     const opacity = p.opacity !== undefined ? p.opacity / 100 : 0.7;
 
     const cosLat = Math.cos(centroid.lat * Math.PI / 180);
-    const shape: Vector2[] = nodes.map(n => new Vector2(
+    let shape: Vector2[] = nodes.map(n => new Vector2(
       (n.lng - centroid.lng) * cosLat * 111_320 * meshScale,
       (n.lat - centroid.lat) * 110_540 * meshScale,
     ));
+
+    // Clip shape to tile bounds in local (centroid-relative) space
+    shape = clipPolygonToRect(
+      shape,
+      minX - centroidWorld.x, maxX - centroidWorld.x,
+      minZ - centroidWorld.z, maxZ - centroidWorld.z,
+    );
+    if (shape.length < 3) continue;
 
     // CCW winding check
     let area = 0;
@@ -116,48 +179,62 @@ export function createGeoJSONPolygonLayer(
     }
     if (area < 0) shape.reverse();
 
-    let polyMesh: Mesh;
+    // Build earcut polygon — used only to get triangulation topology
+    let flatVerts: ArrayLike<number>;
+    let flatIdx:   ArrayLike<number>;
+    let tmpMesh: Mesh;
     try {
-      const pmb = new PolygonMeshBuilder(`gj-poly-${idx}`, shape, scene, earcut);
-      polyMesh = pmb.build(false, 0);
+      const pmb = new PolygonMeshBuilder(`gj-poly-tmp-${idx}`, shape, scene, earcut);
+      tmpMesh   = pmb.build(false, 0);
+      flatVerts = tmpMesh.getVerticesData(VertexBuffer.PositionKind)!;
+      flatIdx   = tmpMesh.getIndices()!;
     } catch {
       continue;
     }
 
-    const maxTerrainY = Math.max(
-      ...nodes.map(n => getTerrainY(n.lat, n.lng)),
-      getTerrainY(centroid.lat, centroid.lng),
-    );
-    polyMesh.position.set(centroidWorld.x, maxTerrainY + 0.001, centroidWorld.z);
-    polyMesh.renderingGroupId = 1;
+    // Subdivide so interior vertices can be draped individually
+    const subdivLevels = p.animation === "fire" ? 1 : regularSubdivLevels;
+    const { positions: subPos, indices: subIdx } = subdivide(flatVerts, flatIdx, subdivLevels);
+
+    // Drape: recover lat/lng via the inverse of the shape formula (no worldToLatLng roundtrip)
+    for (let v = 0; v < subPos.length; v += 3) {
+      const vLng = centroid.lng + subPos[v]     / (cosLat * 111_320 * meshScale);
+      const vLat = centroid.lat + subPos[v + 2] / (110_540 * meshScale);
+      subPos[v + 1] = getTerrainY(vLat, vLng) + 0.001;
+    }
+
+    const maxTerrainY = Math.max(...nodes.map(n => getTerrainY(n.lat, n.lng)));
 
     if (p.animation === "fire") {
-      // Polygon hidden — fire clusters are the only visual
+      // Reuse tmpMesh as the toggling anchor; apply draped geometry to it
+      const polyMesh = tmpMesh;
+      const polyNormals = new Float32Array(subPos.length);
+      VertexData.ComputeNormals(subPos, subIdx, polyNormals);
+      const polyVd = new VertexData();
+      polyVd.positions = subPos; polyVd.indices = subIdx; polyVd.normals = polyNormals;
+      polyVd.applyToMesh(polyMesh, false);
       polyMesh.isVisible = false;
+      polyMesh.position.set(centroidWorld.x, 0, centroidWorld.z);
+      polyMesh.renderingGroupId = 1;
 
-      // Place one fire cluster at each earcut triangle centroid.
-      // This gives discrete fires with breathing space between them.
-      const rawVerts = polyMesh.getVerticesData(VertexBuffer.PositionKind)!;
-      const rawIdx   = polyMesh.getIndices()!;
+      // One fire cluster per triangle centroid
       const clusters: Vector3[] = [];
-      for (let t = 0; t < rawIdx.length; t += 3) {
-        const ai = rawIdx[t] * 3, bi = rawIdx[t + 1] * 3, ci = rawIdx[t + 2] * 3;
+      for (let t = 0; t < subIdx.length; t += 3) {
+        const ai = subIdx[t] * 3, bi = subIdx[t + 1] * 3, ci = subIdx[t + 2] * 3;
         clusters.push(new Vector3(
-          polyMesh.position.x + (rawVerts[ai]     + rawVerts[bi]     + rawVerts[ci])     / 3,
-          polyMesh.position.y,
-          polyMesh.position.z + (rawVerts[ai + 2] + rawVerts[bi + 2] + rawVerts[ci + 2]) / 3,
+          centroidWorld.x + (subPos[ai]     + subPos[bi]     + subPos[ci])     / 3,
+          (subPos[ai + 1] + subPos[bi + 1] + subPos[ci + 1]) / 3,
+          centroidWorld.z + (subPos[ai + 2] + subPos[bi + 2] + subPos[ci + 2]) / 3,
         ));
       }
 
       const allPs: ParticleSystem[] = [];
-
       for (let ci = 0; ci < clusters.length; ci++) {
         const ps = new ParticleSystem(`gj-fire-ps-${idx}-${ci}`, 80, scene);
         ps.particleTexture = getFireParticleTex(scene);
         ps.blendMode       = ParticleSystem.BLENDMODE_ADD;
         ps.emitter         = clusters[ci];
 
-        // Tiny spawn box so each cluster stays a tight pocket of flame
         const bpe = new BoxParticleEmitter();
         bpe.minEmitBox = new Vector3(-0.005, 0, -0.005);
         bpe.maxEmitBox = new Vector3( 0.005, 0,  0.005);
@@ -189,7 +266,6 @@ export function createGeoJSONPolygonLayer(
         allPs.push(ps);
       }
 
-      // Sync all cluster systems with the layer toggle
       let psActive = true;
       scene.onBeforeRenderObservable.add(() => {
         const enabled = polyMesh.isEnabled();
@@ -202,26 +278,26 @@ export function createGeoJSONPolygonLayer(
       meshes.push(polyMesh);
 
     } else if (p.animation === "wave") {
-      // polyMesh provides the exact polygon shape; hide it and use a subdivided
-      // copy for the animation so corners are respected and waves look smooth.
+      const polyMesh = tmpMesh;
+      const polyNormals = new Float32Array(subPos.length);
+      VertexData.ComputeNormals(subPos, subIdx, polyNormals);
+      const polyVd = new VertexData();
+      polyVd.positions = subPos; polyVd.indices = subIdx; polyVd.normals = polyNormals;
+      polyVd.applyToMesh(polyMesh, false);
       polyMesh.isVisible = false;
+      polyMesh.position.set(centroidWorld.x, 0, centroidWorld.z);
+      polyMesh.renderingGroupId = 1;
 
-      const rawVerts = polyMesh.getVerticesData(VertexBuffer.PositionKind)!;
-      const rawIdx   = polyMesh.getIndices()!;
-      const { positions: subPos, indices: subIdx } = subdivide(rawVerts, rawIdx, 3);
-
-      const normals = new Float32Array(subPos.length);
-      VertexData.ComputeNormals(subPos, subIdx, normals);
+      const waveNormals = new Float32Array(subPos.length);
+      VertexData.ComputeNormals(subPos, subIdx, waveNormals);
 
       const waveMesh = new Mesh(`gj-wave-${idx}`, scene);
-      waveMesh.position.set(centroidWorld.x, maxTerrainY + 0.003, centroidWorld.z);
+      waveMesh.position.set(centroidWorld.x, 0, centroidWorld.z);
       waveMesh.renderingGroupId = 1;
 
-      const vd = new VertexData();
-      vd.positions = subPos;
-      vd.indices   = subIdx;
-      vd.normals   = normals;
-      vd.applyToMesh(waveMesh, true);
+      const wvd = new VertexData();
+      wvd.positions = subPos; wvd.indices = subIdx; wvd.normals = waveNormals;
+      wvd.applyToMesh(waveMesh, true);
 
       const waveMat = new StandardMaterial(`gj-wave-mat-${idx}`, scene);
       waveMat.diffuseColor    = p.color ? color : new Color3(0.04, 0.22, 0.70);
@@ -234,7 +310,7 @@ export function createGeoJSONPolygonLayer(
 
       const base = new Float32Array(subPos);
       const pos  = new Float32Array(base.length);
-      const amp  = 0.004; // smaller per-crest height so many waves stay tight
+      const amp  = 0.004;
       let wt = 0;
 
       scene.onBeforeRenderObservable.add(() => {
@@ -244,7 +320,6 @@ export function createGeoJSONPolygonLayer(
           const x = base[i], z = base[i + 2];
           pos[i]     = x;
           pos[i + 2] = z;
-          // High spatial frequencies → many small crests visible across polygon
           pos[i + 1] = base[i + 1]
             + Math.sin(x * 280 + wt * 3.5) * amp
             + Math.sin(z * 220 - wt * 2.8) * amp * 0.75
@@ -257,28 +332,78 @@ export function createGeoJSONPolygonLayer(
       meshes.push(waveMesh);
 
     } else {
-      const mat = new StandardMaterial(`gj-poly-mat-${idx}`, scene);
-      mat.backFaceCulling = false;
-      mat.alpha           = opacity;
-      mat.diffuseColor    = color;
-      mat.emissiveColor   = color.scale(0.2);
-      mat.specularColor   = Color3.Black();
-      polyMesh.material   = mat;
-      meshes.push(polyMesh);
+      // Regular polygon — dispose temporary earcut mesh and accumulate into poly group
+      tmpMesh.dispose();
+
+      const opKey = `${p.color ?? 'default'}_${Math.round(opacity * 100)}`;
+      if (!polyGroups.has(opKey)) {
+        polyGroups.set(opKey, { positions: [], indices: [], normals: [], color, opacity });
+      }
+      const group = polyGroups.get(opKey)!;
+
+      const polyNormals = new Float32Array(subPos.length);
+      VertexData.ComputeNormals(subPos, subIdx, polyNormals);
+
+      const localVertexBase = group.positions.length / 3;
+      const addedLocal = new Map<number, number>();
+
+      for (let t = 0; t < subIdx.length; t += 3) {
+        const ia = subIdx[t], ib = subIdx[t + 1], ic = subIdx[t + 2];
+
+        const addVert = (vi: number): number => {
+          if (addedLocal.has(vi)) return addedLocal.get(vi)!;
+          const ni = localVertexBase + addedLocal.size;
+          addedLocal.set(vi, ni);
+          group.positions.push(centroidWorld.x + subPos[vi * 3], subPos[vi * 3 + 1], centroidWorld.z + subPos[vi * 3 + 2]);
+          group.normals.push(polyNormals[vi * 3], polyNormals[vi * 3 + 1], polyNormals[vi * 3 + 2]);
+
+          return ni;
+        };
+        group.indices.push(addVert(ia), addVert(ib), addVert(ic));
+      }
+
     }
 
-    // ---- Centroid label ----
+    // Centroid label (all animation types)
     if (p.title) {
       const lH = 0.075, lW = lH * 5;
       const { plane: lp, textBlock: tb } = createBillboardLabel(`gj-poly-lbl-${idx}`, lW, lH, 512, 100, scene);
       lp.position.set(centroidWorld.x, maxTerrainY + 0.05, centroidWorld.z);
       tb.text = p.title;
-      tb.color = "white";
+      tb.color = `rgb(${Math.round(color.r * 255)},${Math.round(color.g * 255)},${Math.round(color.b * 255)})`;
       tb.fontSize = 48;
       meshes.push(lp);
     }
   }
 
-  console.log(`[GeoJSON Polygons] ${meshes.length} meshes created`);
+  // Build one merged mesh per opacity value (typically just one total).
+  // Vertex colours carry per-polygon colour; features were accumulated in reverse index
+  // order so feature 0's triangles are last in the buffer and win the LEQUAL depth test
+  // over any overlapping later polygon — first in file = always on top.
+  for (const [opKey, group] of polyGroups) {
+    if (group.indices.length === 0) continue;
+
+    const mergedMesh = new Mesh(`gj-poly-${opKey}`, scene);
+    mergedMesh.position.setAll(0);
+    mergedMesh.renderingGroupId = 1;
+
+    const vd = new VertexData();
+    vd.positions = new Float32Array(group.positions);
+    vd.indices   = group.indices;
+    vd.normals   = new Float32Array(group.normals);
+    vd.applyToMesh(mergedMesh, false);
+
+    const mat = new StandardMaterial(`gj-poly-mat-${opKey}`, scene);
+    mat.backFaceCulling = false;
+    mat.alpha           = group.opacity;
+    mat.diffuseColor    = FLAT_SHADING ? Color3.Black() : group.color;
+    mat.emissiveColor   = FLAT_SHADING ? group.color : group.color.scale(0.2);
+    mat.specularColor   = Color3.Black();
+    mergedMesh.material = mat;
+
+    meshes.push(mergedMesh);
+  }
+
+  console.log(`[GeoJSON Polygons] ${meshes.length} meshes (${polyGroups.size} opacity groups merged)`);
   return meshes;
 }

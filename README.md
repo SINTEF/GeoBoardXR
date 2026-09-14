@@ -298,15 +298,16 @@ src/
 
 Contributions are welcome. Open an issue to discuss before starting:
 
-- **Region switching robustness** — thorough testing of geographic region switching to surface and resolve edge cases, race conditions, and loading bugs across terrain, OSM, and data layers
+- **Region switching robustness (continuous)** — thorough testing of geographic region switching to surface and resolve edge cases, race conditions, and loading bugs across terrain, OSM, and data layers
 - ~~**Overpass API resilience** — OSM data (buildings, roads, place labels) is fetched from the public `overpass-api.de` endpoint, which has no availability guarantees. Adding fallback rotation across community mirrors (`overpass.kumi.systems`, `overpass.openstreetmap.ru`) would make the first-load experience significantly more reliable~~
 - **AR tuning** — AR mode works via WebXR passthrough but needs calibration for table-scale placement and occlusion on different devices
 - **Bathymetry & ocean terrain** — integrate seafloor elevation data and ocean current / water column datasets as dedicated layers
 - **Fuzzy cognitive maps** — visualise FCM nodes and weighted edges as an interactive 3D graph layer on the terrain
 - **Avatars & multi-user** — shared presence in the same geographic space, with avatar representation and synchronised layer toggles
 - ~~**Video projection** — play video content on the projection walls in the scene, alongside images and text~~
-- **Live data integration** — connect to external APIs to stream real-time data (sensor feeds, live ocean data, traffic, etc.)
-- **CMS / API layer** — a backend content and data management layer for GeoBed3D, enabling organisations to publish, version, and serve geospatial datasets directly to the platform (Sanity.io? Pocketbase?)
+- **Live data integration (continuous)** — connect to external APIs to stream real-time data (sensor feeds, live ocean data, ~~boat traffic~~, etc.)
+- **Spatial narrative engine** — a GeoJSON-driven playback system that turns a FeatureCollection into a timed, audio-visual presentation. A scene that plays out like a guided spatial story, fully authored in GeoJSON with no timeline editor or video tooling required.
+- **CMS / API layer** — a backend content and data management layer, enabling organisations to publish, version, and serve geospatial datasets directly to the platform (Sanity.io? Pocketbase?)
 
 ---
 

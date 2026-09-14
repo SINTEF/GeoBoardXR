@@ -8,6 +8,9 @@ import type { TerrainMesh } from "./TerrainMesh";
 import type { LineFeature, GeoJSONLineProps } from "../data/loaders/geojsonLoader";
 import { createBillboardLabel } from "./billboardUtils";
 
+// Set to false to restore diffuse+specular lighting on lines.
+const FLAT_SHADING = false;
+
 function hexToColor3(hex: string): Color3 {
   const h = hex.replace("#", "");
   return new Color3(
@@ -45,38 +48,33 @@ export function createGeoJSONLineLayer(
       terrainMesh.latLngToScaledWorld({ lat: n.lat, lng: n.lng, altitude: 0 })
     );
 
-    const isWall = wallHeight > halfW * 3; // tall enough to look like a vertical wall
-
-    const p1: Vector3[] = [];
-    const p2: Vector3[] = [];
+    const p1: Vector3[] = []; // bottom-left
+    const p2: Vector3[] = []; // bottom-right
+    const p3: Vector3[] = []; // top-right
+    const p4: Vector3[] = []; // top-left
 
     for (let i = 0; i < worldPts.length; i++) {
-      const pos  = worldPts[i];
+      const pos   = worldPts[i];
       const terrY = getTerrainY(nodes[i].lat, nodes[i].lng) + 0.001;
-      const next = worldPts[Math.min(i + 1, worldPts.length - 1)];
-      const prev = worldPts[Math.max(i - 1, 0)];
+      const next  = worldPts[Math.min(i + 1, worldPts.length - 1)];
+      const prev  = worldPts[Math.max(i - 1, 0)];
       let dx = next.x - prev.x, dz = next.z - prev.z;
       const len = Math.sqrt(dx * dx + dz * dz);
       if (len > 0) { dx /= len; dz /= len; }
 
-      if (isWall) {
-        // Vertical ribbon: centre bottom → centre top — renders as a tall wall
-        p1.push(new Vector3(pos.x, terrY, pos.z));
-        p2.push(new Vector3(pos.x, terrY + wallHeight, pos.z));
-      } else {
-        // Flat ribbon like roads: left edge → right edge at terrain level
-        p1.push(new Vector3(pos.x - dz * halfW, terrY, pos.z + dx * halfW));
-        p2.push(new Vector3(pos.x + dz * halfW, terrY, pos.z - dx * halfW));
-      }
+      p1.push(new Vector3(pos.x - dz * halfW, terrY,              pos.z + dx * halfW));
+      p2.push(new Vector3(pos.x + dz * halfW, terrY,              pos.z - dx * halfW));
+      p3.push(new Vector3(pos.x + dz * halfW, terrY + wallHeight, pos.z - dx * halfW));
+      p4.push(new Vector3(pos.x - dz * halfW, terrY + wallHeight, pos.z + dx * halfW));
     }
 
     const ribbon = CreateRibbon(`gj-line-${idx}`, {
-      pathArray: [p1, p2], closeArray: false, closePath: false,
+      pathArray: [p1, p2, p3, p4], closeArray: true, closePath: false,
     }, scene);
 
     const mat = new StandardMaterial(`gj-line-mat-${idx}`, scene);
-    mat.diffuseColor  = color;
-    mat.emissiveColor = color.scale(0.2);
+    mat.diffuseColor  = FLAT_SHADING ? Color3.Black() : color;
+    mat.emissiveColor = FLAT_SHADING ? color : color.scale(0.5);
     mat.specularColor = Color3.Black();
     mat.backFaceCulling = false; // visible from both sides (wall + flat)
     ribbon.material         = mat;

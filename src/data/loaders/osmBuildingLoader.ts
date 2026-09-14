@@ -43,7 +43,7 @@ export async function loadOSMBuildings(
   }
 
   const { north, south, east, west } = tileBoundsLngLat(tx, ty, tz);
-  const query = `[out:json][timeout:25];way["building"](${south},${west},${north},${east});out geom;`;
+  const query = `[out:json][timeout:60];way["building"](${south},${west},${north},${east});out geom;`;
   const data = await fetchOverpass(query);
 
   const buildings: OSMBuilding[] = [];
@@ -82,6 +82,10 @@ export async function loadOSMBuildings(
   }
 
   console.log(`[OSM] Loaded ${buildings.length} buildings`);
-  localStorage.setItem(cacheKey, JSON.stringify({ data: buildings, ts: Date.now() }));
+  const payload = JSON.stringify({ data: buildings, ts: Date.now() });
+  for (let i = 0; i < 10; i++) {
+    try { localStorage.setItem(cacheKey, payload); break; }
+    catch { const k = Object.keys(localStorage).find(k => k !== cacheKey && (k.startsWith('osm-') || k.startsWith('wikimedia_'))); if (k) localStorage.removeItem(k); else break; }
+  }
   return buildings;
 }

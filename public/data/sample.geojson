@@ -140,8 +140,8 @@
         ]
       },
       "properties": {
-        "title": "This is a Line",
-        "linesize": 100,
+        "title": "Tall line",
+        "linewidth": 7,
         "lineheight": 100
       }
     },
@@ -339,6 +339,77 @@
           68.6886633
         ]
       }
-    }
+    },
+        {
+            "type": "Feature",
+            "properties": {
+                "color": "#c4da09",
+                "title": "Polygon"
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            15.295048,
+                            68.723529
+                        ],
+                        [
+                            15.288937,
+                            68.718299
+                        ],
+                        [
+                            15.302542,
+                            68.715871
+                        ],
+                        [
+                            15.320643,
+                            68.719261
+                        ],
+                        [
+                            15.316262,
+                            68.725119
+                        ],
+                        [
+                            15.307961,
+                            68.72516
+                        ],
+                        [
+                            15.307961,
+                            68.72516
+                        ],
+                        [
+                            15.307961,
+                            68.725119
+                        ],
+                        [
+                            15.295048,
+                            68.723529
+                        ]
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "color": "#05e53f",
+                "linewidth": 100,
+                "title": "Wide line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        15.287093,
+                        68.716541
+                    ],
+                    [
+                        15.299314,
+                        68.7147
+                    ]
+                ]
+            }
+        }
   ]
 }

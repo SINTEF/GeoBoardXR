@@ -1,10 +1,13 @@
 const MIRRORS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.openstreetmap.fr/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
   "https://overpass.openstreetmap.ru/api/interpreter",
 ];
 
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS   = 100_000;
+const RETRY_DELAY  = 2_000;  // wait before trying next mirror
 
 async function tryMirror(base: string, query: string): Promise<{ elements: any[] }> {
   const controller = new AbortController();
@@ -20,11 +23,12 @@ async function tryMirror(base: string, query: string): Promise<{ elements: any[]
 
 export async function fetchOverpass(query: string): Promise<{ elements: any[] }> {
   let lastErr: unknown;
-  for (const base of MIRRORS) {
+  for (let i = 0; i < MIRRORS.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, RETRY_DELAY));
     try {
-      return await tryMirror(base, query);
+      return await tryMirror(MIRRORS[i], query);
     } catch (err) {
-      console.warn(`[Overpass] ${base} failed, trying next…`, err);
+      console.warn(`[Overpass] ${MIRRORS[i]} failed, trying next…`, err);
       lastErr = err;
     }
   }

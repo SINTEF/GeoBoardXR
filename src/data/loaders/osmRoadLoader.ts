@@ -30,7 +30,7 @@ export async function loadOSMRoads(tx: number, ty: number, tz: number): Promise<
 
   const { north, south, east, west } = tileBoundsLngLat(tx, ty, tz);
   const types = Object.keys(TYPE_MAP).join("|");
-  const query = `[out:json][timeout:30];way["highway"~"^(${types})$"](${south},${west},${north},${east});out geom;`;
+  const query = `[out:json][timeout:90];way["highway"~"^(${types})$"](${south},${west},${north},${east});out geom;`;
 
   const data = await fetchOverpass(query);
 
@@ -47,6 +47,10 @@ export async function loadOSMRoads(tx: number, ty: number, tz: number): Promise<
   }
 
   console.log(`[OSM Roads] Loaded ${roads.length} roads`);
-  localStorage.setItem(cacheKey, JSON.stringify({ data: roads, ts: Date.now() }));
+  const payload = JSON.stringify({ data: roads, ts: Date.now() });
+  for (let i = 0; i < 10; i++) {
+    try { localStorage.setItem(cacheKey, payload); break; }
+    catch { const k = Object.keys(localStorage).find(k => k !== cacheKey && (k.startsWith('osm-') || k.startsWith('wikimedia_'))); if (k) localStorage.removeItem(k); else break; }
+  }
   return roads;
 }

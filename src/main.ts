@@ -55,6 +55,7 @@ const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 const { scene } = createScene(canvas);
 (window as any).__scene = scene;
 
+
 const gui2D = DEBUG ? AdvancedDynamicTexture.CreateFullscreenUI("ui", true, scene) : null;
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,7 @@ const groundMesh  = terrainMesh.createMesh(geometry, { meshScale: MESH_SCALE });
 
 groundMesh.computeWorldMatrix(true);
 const { minimumWorld, maximumWorld } = groundMesh.getBoundingInfo().boundingBox;
+
 createTable(scene, minimumWorld, maximumWorld);
 createRoom(scene, minimumWorld, maximumWorld);
 
