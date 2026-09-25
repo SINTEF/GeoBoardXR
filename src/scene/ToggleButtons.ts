@@ -5,10 +5,12 @@ import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTextur
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import type { PlaybackController } from "./PlaybackController";
 
 export interface ToggleLayer {
   label: string;
   meshes: Mesh[];
+  playback?: PlaybackController;
 }
 
 // ── canvas helpers ────────────────────────────────────────────────────────────
@@ -51,6 +53,22 @@ function drawButton(
   ctx.fillText(on ? "● ON" : "○ OFF", texW / 2, texH * 0.70);
 }
 
+function drawCircleBtn(ctx: CanvasRenderingContext2D, sz: number, symbol: string, active: boolean): void {
+  ctx.clearRect(0, 0, sz, sz);
+  ctx.beginPath();
+  ctx.arc(sz / 2, sz / 2, sz / 2 - 4, 0, Math.PI * 2);
+  ctx.fillStyle = active ? "#14532d" : "#0f172a";
+  ctx.fill();
+  ctx.strokeStyle = active ? "#22c55e" : "#475569";
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `bold ${Math.round(sz * 0.45)}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(symbol, sz / 2, sz / 2);
+}
+
 // ── placement ─────────────────────────────────────────────────────────────────
 
 function buttonPlacement(
@@ -64,6 +82,21 @@ function buttonPlacement(
     case 2: return [new Vector3(tableW, btnCY, midZ + slotOffset), -Math.PI/2]; // west
     case 3: return [new Vector3(tableE, btnCY, midZ + slotOffset),  Math.PI/2]; // east
     default: return [new Vector3(midX, btnCY, tableS), 0];
+  }
+}
+
+function pbBtnPlacement(
+  side: number, slotOffset: number, lateralExtra: number, y: number,
+  tableS: number, tableN: number, tableW: number, tableE: number,
+  midX: number, midZ: number,
+): [Vector3, number] {
+  const off = slotOffset + lateralExtra;
+  switch (side) {
+    case 0: return [new Vector3(midX + off, y, tableS), Math.PI   ];
+    case 1: return [new Vector3(midX + off, y, tableN), 0         ];
+    case 2: return [new Vector3(tableW,     y, midZ + off), -Math.PI / 2];
+    case 3: return [new Vector3(tableE,     y, midZ + off),  Math.PI / 2];
+    default: return [new Vector3(midX + off, y, tableS), Math.PI];
   }
 }
 
@@ -163,11 +196,98 @@ export function createToggleButtons(
     }
   }
 
+  // ── Playback buttons (for layers with a PlaybackController) ─────────────────
+
+  const circTexSz = 128;
+  const circD     = btnH * 0.68;
+  const circBtnY  = btnCY + btnH * 0.6 + circD * 0.55;
+  const spacing   = circD * 0.62; // lateral offset from slot centre to each button
+
+  // Per layer: one entry per side with the play/pause texture (restart never changes)
+  const pbBtnData: Array<Array<{ ppTex: DynamicTexture; ppCtx: CanvasRenderingContext2D }> | null> =
+    layers.map(() => null);
+
+  const btnToPlayback = new Map<string, { li: number; action: "toggle" | "restart" }>();
+
+  for (let li = 0; li < layers.length; li++) {
+    const ctrl = layers[li].playback;
+    if (!ctrl) continue;
+
+    const sideEntries: Array<{ ppTex: DynamicTexture; ppCtx: CanvasRenderingContext2D }> = [];
+
+    for (let side = 0; side < 4; side++) {
+      const slotOff = layerOffsets[li];
+
+      // ▶/⏸ button (left of pair)
+      const ppTex = new DynamicTexture(`pbtn-pp-${side}-${li}`, { width: circTexSz, height: circTexSz }, scene, false);
+      const ppCtx = ppTex.getContext() as CanvasRenderingContext2D;
+      drawCircleBtn(ppCtx, circTexSz, "▶︎", false);
+      ppTex.update();
+      const ppMat = new StandardMaterial(`pbtn-pp-mat-${side}-${li}`, scene);
+      ppMat.diffuseTexture = ppMat.emissiveTexture = ppMat.opacityTexture = ppTex;
+      ppMat.backFaceCulling = false;
+      ppMat.disableLighting = true;
+      const ppName  = `pbtn-pp-${side}-${li}`;
+      const ppPlane = CreatePlane(ppName, { width: circD, height: circD }, scene);
+      const [ppPos, ppRotY] = pbBtnPlacement(side, slotOff, -spacing, circBtnY, tableS, tableN, tableW, tableE, midX, midZ);
+      ppPlane.position.copyFrom(ppPos);
+      ppPlane.rotation.y = ppRotY;
+      ppPlane.material   = ppMat;
+      ppPlane.setEnabled(false);
+      layers[li].meshes.push(ppPlane);
+      btnToPlayback.set(ppName, { li, action: "toggle" });
+      sideEntries.push({ ppTex, ppCtx });
+
+      // ↺ restart button (right of pair)
+      const rTex = new DynamicTexture(`pbtn-r-${side}-${li}`, { width: circTexSz, height: circTexSz }, scene, false);
+      const rCtx = rTex.getContext() as CanvasRenderingContext2D;
+      drawCircleBtn(rCtx, circTexSz, "↺︎", false);
+      rTex.update();
+      const rMat = new StandardMaterial(`pbtn-r-mat-${side}-${li}`, scene);
+      rMat.diffuseTexture = rMat.emissiveTexture = rMat.opacityTexture = rTex;
+      rMat.backFaceCulling = false;
+      rMat.disableLighting = true;
+      const rName  = `pbtn-r-${side}-${li}`;
+      const rPlane = CreatePlane(rName, { width: circD, height: circD }, scene);
+      const [rPos, rRotY] = pbBtnPlacement(side, slotOff, +spacing, circBtnY, tableS, tableN, tableW, tableE, midX, midZ);
+      rPlane.position.copyFrom(rPos);
+      rPlane.rotation.y = rRotY;
+      rPlane.material   = rMat;
+      rPlane.setEnabled(false);
+      layers[li].meshes.push(rPlane);
+      btnToPlayback.set(rName, { li, action: "restart" });
+    }
+
+    pbBtnData[li] = sideEntries;
+  }
+
+  const updatePbBtns = (li: number) => {
+    const ctrl = layers[li].playback;
+    const data = pbBtnData[li];
+    if (!ctrl || !data) return;
+    const symbol = ctrl.isPlaying ? "⏸︎" : "▶︎";
+    const active = ctrl.isPlaying;
+    for (const { ppTex, ppCtx } of data) {
+      drawCircleBtn(ppCtx, circTexSz, symbol, active);
+      ppTex.update();
+    }
+  };
+
   // One pointer handler for all buttons — reliable across desktop + WebXR
   scene.onPointerObservable.add((info) => {
     if (info.type !== PointerEventTypes.POINTERDOWN) return;
     const hit = info.pickInfo?.pickedMesh;
     if (!hit) return;
+
+    // Playback buttons
+    const pb = btnToPlayback.get(hit.name);
+    if (pb !== undefined) {
+      const ctrl = layers[pb.li].playback!;
+      if (pb.action === "toggle") ctrl.toggle();
+      else ctrl.restart();
+      updatePbBtns(pb.li);
+      return;
+    }
 
     const li = btnToLayer.get(hit.name);
     if (li === undefined) return;
@@ -175,6 +295,14 @@ export function createToggleButtons(
     states[li] = !states[li];
     const on = states[li];
     for (const m of layers[li].meshes) m.setEnabled(on);
+
+    // Pause playback when the layer is toggled off so audio and animations stop
+    const ctrl = layers[li].playback;
+    if (!on && ctrl?.isPlaying) {
+      ctrl.pause();
+      updatePbBtns(li);
+    }
+
     for (const { tex: t, ctx: c, texW: tw } of layerBtns[li]) {
       drawButton(c, tw, texH, on, layers[li].label);
       t.update();

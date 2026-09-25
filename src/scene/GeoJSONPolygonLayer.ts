@@ -13,15 +13,8 @@ import earcut from "earcut";
 import type { TerrainMesh } from "./TerrainMesh";
 import type { PolygonFeature, GeoJSONPolygonProps } from "../data/loaders/geojsonLoader";
 import { createBillboardLabel } from "./billboardUtils";
-
-function hexToColor3(hex: string): Color3 {
-  const h = hex.replace("#", "");
-  return new Color3(
-    parseInt(h.slice(0, 2), 16) / 255,
-    parseInt(h.slice(2, 4), 16) / 255,
-    parseInt(h.slice(4, 6), 16) / 255,
-  );
-}
+import type { PlaybackController } from "./PlaybackController";
+import { registerTimedVisibility } from "./playbackTiming";
 
 // Orange-tinted glow texture — gives fire particles their warm core colour
 let _fireParticleTex: DynamicTexture | null = null;
@@ -41,6 +34,15 @@ function getFireParticleTex(scene: Scene): DynamicTexture {
   tex.hasAlpha = true;
   _fireParticleTex = tex;
   return tex;
+}
+
+function hexToColor3(hex: string): Color3 {
+  const h = hex.replace("#", "");
+  return new Color3(
+    parseInt(h.slice(0, 2), 16) / 255,
+    parseInt(h.slice(2, 4), 16) / 255,
+    parseInt(h.slice(4, 6), 16) / 255,
+  );
 }
 
 // ── Mesh subdivision (midpoint insertion) ─────────────────────────────────────
@@ -123,6 +125,7 @@ export function createGeoJSONPolygonLayer(
   scene: Scene,
   meshScale: number,
   getTerrainY: (lat: number, lng: number) => number,
+  controller?: PlaybackController,
 ): Mesh[] {
   const meshes: Mesh[] = [];
   const { minimumWorld, maximumWorld } = terrainMesh.groundMesh.getBoundingInfo().boundingBox;
@@ -157,6 +160,8 @@ export function createGeoJSONPolygonLayer(
 
     const color   = p.color ? hexToColor3(p.color) : new Color3(0.53, 0.81, 0.98);
     const opacity = p.opacity !== undefined ? p.opacity / 100 : 0.7;
+    const hasTiming = controller !== undefined && (p.startTime !== undefined || p.endTime !== undefined);
+    const timedMeshes: Mesh[] = [];
 
     const cosLat = Math.cos(centroid.lat * Math.PI / 180);
     let shape: Vector2[] = nodes.map(n => new Vector2(
@@ -213,9 +218,14 @@ export function createGeoJSONPolygonLayer(
       const polyVd = new VertexData();
       polyVd.positions = subPos; polyVd.indices = subIdx; polyVd.normals = polyNormals;
       polyVd.applyToMesh(polyMesh, false);
-      polyMesh.isVisible = false;
+      // Only hide initially for timed features — otherwise particles start then immediately stop
+      if (hasTiming) polyMesh.isVisible = false;
       polyMesh.position.set(centroidWorld.x, 0, centroidWorld.z);
       polyMesh.renderingGroupId = 1;
+      // Transparent material so the anchor mesh never renders visually
+      const firePlaneMat = new StandardMaterial(`gj-fire-plane-mat-${idx}`, scene);
+      firePlaneMat.alpha = 0;
+      polyMesh.material = firePlaneMat;
 
       // One fire cluster per triangle centroid
       const clusters: Vector3[] = [];
@@ -268,7 +278,10 @@ export function createGeoJSONPolygonLayer(
 
       let psActive = true;
       scene.onBeforeRenderObservable.add(() => {
-        const enabled = polyMesh.isEnabled();
+        // For timed features, isVisible signals the timing window; for always-on fire, only check layer toggle
+        const enabled = hasTiming
+          ? (polyMesh.isEnabled() && polyMesh.isVisible)
+          : polyMesh.isEnabled();
         if (enabled !== psActive) {
           if (enabled) allPs.forEach(s => s.start()); else allPs.forEach(s => s.stop());
           psActive = enabled;
@@ -276,6 +289,7 @@ export function createGeoJSONPolygonLayer(
       });
 
       meshes.push(polyMesh);
+      if (hasTiming) timedMeshes.push(polyMesh);
 
     } else if (p.animation === "wave") {
       const polyMesh = tmpMesh;
@@ -314,7 +328,7 @@ export function createGeoJSONPolygonLayer(
       let wt = 0;
 
       scene.onBeforeRenderObservable.add(() => {
-        if (!waveMesh.isEnabled()) return;
+        if (!waveMesh.isEnabled() || !waveMesh.isVisible) return;
         wt += scene.getEngine().getDeltaTime() * 0.001;
         for (let i = 0; i < base.length; i += 3) {
           const x = base[i], z = base[i + 2];
@@ -330,38 +344,59 @@ export function createGeoJSONPolygonLayer(
 
       meshes.push(polyMesh);
       meshes.push(waveMesh);
+      if (hasTiming) { timedMeshes.push(polyMesh); timedMeshes.push(waveMesh); }
 
     } else {
-      // Regular polygon — dispose temporary earcut mesh and accumulate into poly group
-      tmpMesh.dispose();
+      if (hasTiming) {
+        // Timed regular polygon — individual mesh (not merged) so timing can show/hide it
+        const polyNormals = new Float32Array(subPos.length);
+        VertexData.ComputeNormals(subPos, subIdx, polyNormals);
+        const timedMesh = tmpMesh;
+        const tvd = new VertexData();
+        tvd.positions = subPos; tvd.indices = subIdx; tvd.normals = polyNormals;
+        tvd.applyToMesh(timedMesh, false);
+        timedMesh.position.set(centroidWorld.x, 0, centroidWorld.z);
+        timedMesh.renderingGroupId = 1;
+        const timedMat = new StandardMaterial(`gj-poly-timed-mat-${idx}`, scene);
+        timedMat.backFaceCulling = false;
+        timedMat.alpha           = opacity;
+        timedMat.diffuseColor    = FLAT_SHADING ? Color3.Black() : color;
+        timedMat.emissiveColor   = FLAT_SHADING ? color : color.scale(0.2);
+        timedMat.specularColor   = Color3.Black();
+        timedMesh.material       = timedMat;
+        timedMeshes.push(timedMesh);
+        meshes.push(timedMesh);
+      } else {
+        // Regular polygon — dispose temporary earcut mesh and accumulate into poly group
+        tmpMesh.dispose();
 
-      const opKey = `${p.color ?? 'default'}_${Math.round(opacity * 100)}`;
-      if (!polyGroups.has(opKey)) {
-        polyGroups.set(opKey, { positions: [], indices: [], normals: [], color, opacity });
+        const opKey = `${p.color ?? 'default'}_${Math.round(opacity * 100)}`;
+        if (!polyGroups.has(opKey)) {
+          polyGroups.set(opKey, { positions: [], indices: [], normals: [], color, opacity });
+        }
+        const group = polyGroups.get(opKey)!;
+
+        const polyNormals = new Float32Array(subPos.length);
+        VertexData.ComputeNormals(subPos, subIdx, polyNormals);
+
+        const localVertexBase = group.positions.length / 3;
+        const addedLocal = new Map<number, number>();
+
+        for (let t = 0; t < subIdx.length; t += 3) {
+          const ia = subIdx[t], ib = subIdx[t + 1], ic = subIdx[t + 2];
+
+          const addVert = (vi: number): number => {
+            if (addedLocal.has(vi)) return addedLocal.get(vi)!;
+            const ni = localVertexBase + addedLocal.size;
+            addedLocal.set(vi, ni);
+            group.positions.push(centroidWorld.x + subPos[vi * 3], subPos[vi * 3 + 1], centroidWorld.z + subPos[vi * 3 + 2]);
+            group.normals.push(polyNormals[vi * 3], polyNormals[vi * 3 + 1], polyNormals[vi * 3 + 2]);
+
+            return ni;
+          };
+          group.indices.push(addVert(ia), addVert(ib), addVert(ic));
+        }
       }
-      const group = polyGroups.get(opKey)!;
-
-      const polyNormals = new Float32Array(subPos.length);
-      VertexData.ComputeNormals(subPos, subIdx, polyNormals);
-
-      const localVertexBase = group.positions.length / 3;
-      const addedLocal = new Map<number, number>();
-
-      for (let t = 0; t < subIdx.length; t += 3) {
-        const ia = subIdx[t], ib = subIdx[t + 1], ic = subIdx[t + 2];
-
-        const addVert = (vi: number): number => {
-          if (addedLocal.has(vi)) return addedLocal.get(vi)!;
-          const ni = localVertexBase + addedLocal.size;
-          addedLocal.set(vi, ni);
-          group.positions.push(centroidWorld.x + subPos[vi * 3], subPos[vi * 3 + 1], centroidWorld.z + subPos[vi * 3 + 2]);
-          group.normals.push(polyNormals[vi * 3], polyNormals[vi * 3 + 1], polyNormals[vi * 3 + 2]);
-
-          return ni;
-        };
-        group.indices.push(addVert(ia), addVert(ib), addVert(ic));
-      }
-
     }
 
     // Centroid label (all animation types)
@@ -373,6 +408,11 @@ export function createGeoJSONPolygonLayer(
       tb.color = `rgb(${Math.round(color.r * 255)},${Math.round(color.g * 255)},${Math.round(color.b * 255)})`;
       tb.fontSize = 48;
       meshes.push(lp);
+      if (hasTiming) timedMeshes.push(lp);
+    }
+
+    if (hasTiming && timedMeshes.length > 0) {
+      registerTimedVisibility(timedMeshes, p.startTime ?? 0, p.endTime, controller!, scene);
     }
   }
 

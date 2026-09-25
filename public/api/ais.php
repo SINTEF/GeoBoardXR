@@ -8,8 +8,15 @@
 
 // ── credentials — read from project root .env (gitignored) ───────────────────
 (function () {
-    $envFile = __DIR__ . '/../../.env';
-    if (!file_exists($envFile)) return;
+    // Walk up from api/ looking for .env — works at any deployment depth
+    $envFile = null;
+    $dir = __DIR__;
+    for ($i = 0; $i < 4; $i++) {
+        $dir = dirname($dir);
+        $candidate = $dir . '/.env';
+        if (file_exists($candidate)) { $envFile = $candidate; break; }
+    }
+    if (!$envFile) return;
     foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
         if (str_starts_with(trim($line), '#')) continue;
         if (!str_contains($line, '=')) continue;

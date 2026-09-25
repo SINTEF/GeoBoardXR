@@ -1,0 +1,231 @@
+{
+  "type": "FeatureCollection",
+  "name": "MyPlayback",
+  "playback": true,
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            15.4468426,
+            68.6620392
+          ],
+          [
+            15.4372614,
+            68.6937105
+          ],
+          [
+            15.4250671,
+            68.7275491
+          ],
+          [
+            15.4146148,
+            68.7515529
+          ],
+          [
+            15.4146148,
+            68.7515529
+          ]
+        ]
+      },
+      "properties": {
+        "animation": "move",
+        "3dmodel": "ship.glb",
+        "modelscale": 1,
+        "modelrotate": 255,
+        "title": "MS Nordstjernen",
+        "color": "#ffcc00",
+        "startTime": 0,
+        "endTime": 60,
+        "speed": 0.1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [15.351, 68.656, 900],
+          [15.362, 68.787, 700]
+        ]
+      },
+      "properties": {
+        "animation": "move",
+        "3dmodel": "airplane.glb",
+        "modelscale": 1,
+        "modelrotate": 180,
+        "startTime": 0,
+        "endTime": 60,
+        "speed": 0.18
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            15.3873074,
+            68.6924567
+          ],
+          [
+            15.3443615,
+            68.6998614
+          ]
+        ]
+      },
+      "properties": {
+        "animation": "move",
+        "3dmodel": "firetruck.glb",
+        "modelscale": 0.1,
+        "modelrotate": 225,
+        "startTime": 3,
+        "endTime": 60,
+        "speed": 0.01
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [15.402, 68.693] },
+      "properties": {
+        "animation": "justaudio",
+        "audio": "narration1.mp3",
+        "audioVolume": 1.0,
+        "startTime": 0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [15.402, 68.693] },
+      "properties": {
+        "animation": "justaudio",
+        "audio": "narration2.mp3",
+        "audioVolume": 1.0,
+        "startTime": 24
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [15.402, 68.693] },
+      "properties": {
+        "animation": "justaudio",
+        "audio": "narration3.mp3",
+        "audioVolume": 1.0,
+        "startTime": 45
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [15.402, 68.693] },
+      "properties": {
+        "animation": "projection-photo",
+        "image": "sample-image.jpg",
+        "startTime": 25,
+        "endTime": 30
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [15.402, 68.693] },
+      "properties": {
+        "animation": "projection-video",
+        "video": "sample-video.mp4",
+        "startTime": 31,
+        "endTime": 45
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [15.415, 68.700] },
+      "properties": {
+        "title": "Timed Pin",
+        "color": "#ff6600",
+        "startTime": 10,
+        "endTime": 20
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [15.380, 68.685],
+          [15.400, 68.695],
+          [15.420, 68.705],
+          [15.440, 68.710]
+        ]
+      },
+      "properties": {
+        "title": "Timed Line",
+        "color": "#00ffcc",
+        "linewidth": 4,
+        "lineheight": 6,
+        "startTime": 13,
+        "endTime": 23
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [15.390, 68.698],
+          [15.410, 68.698],
+          [15.410, 68.708],
+          [15.390, 68.708],
+          [15.390, 68.698]
+        ]]
+      },
+      "properties": {
+        "title": "Timed Zone",
+        "color": "#ffdd00",
+        "opacity": 60,
+        "startTime": 15,
+        "endTime": 25
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+            [
+              15.3467878,
+              68.6919277
+            ],
+            [
+              15.3545521,
+              68.6913105
+            ],
+            [
+              15.3550373,
+              68.6906051
+            ],
+            [
+              15.3535815,
+              68.6902524
+            ],
+            [
+              15.349942,
+              68.6901642
+            ],
+            [
+              15.3482436,
+              68.689547
+            ],
+            [
+              15.3467878,
+              68.6919277
+            ]
+        ]]
+      },
+      "properties": {
+        "animation": "fire",
+        "startTime": 3,
+        "endTime": 60
+      }
+    }
+  ]
+}

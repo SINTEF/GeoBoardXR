@@ -31,6 +31,7 @@ Tested on: Brave desktop, Meta Quest 2 and 3.
   - **Points** — stick + bubble pins, optional 3D GLB model, click-to-show info on projection walls
   - **Polygons** — coloured fill, fire particle animation, or wave animation
   - **Lines** — flat ribbons or vertical walls with labels
+- **Playback / timed presentations** — mark a GeoJSON file with `"playback": true` to turn it into a timed spatial story. Play/pause and restart controls appear above its layer toggle. Any feature (pin, polygon, line, fire zone, wave area) can carry `startTime`/`endTime` to appear and vanish at precise moments. Dedicated playback-only animations: a 3D model that travels a LineString path (`move`), ambient audio cues (`justaudio`), and full-wall image or video projections (`projection-photo`, `projection-video`). Fully authored in GeoJSON — no timeline editor or video tooling required.
 - **Wikimedia Commons photos** — geotagged photos near the terrain tile are fetched from the Wikimedia Commons API and placed as 3D camera icons on the terrain surface. Clicking an icon shows the photo and metadata on the projection walls.
 - **Country-specific API gating** — a `COUNTRY` constant in `main.ts` controls which country-specific layers and APIs are loaded for the current scene. Set it to the target country (e.g. `"norway"`) and only the APIs relevant to that region are activated. Global APIs (OSM, Wikimedia Commons) always load regardless of `COUNTRY`. This makes it straightforward to adapt the app to a different geographic region without leaving unused API calls or credential requirements active.
 - **Live AIS vessels (Norway)** — real-time vessel positions from the [BarentsWatch Live AIS API](https://developer.barentswatch.no/) are rendered as animated 3D boat models on the terrain. Clicking a vessel shows its name, type, speed, heading, and other AIS data on the projection walls. Requires BarentsWatch API credentials in `.env`. Country-gated via the `COUNTRY` constant in `main.ts`.
@@ -180,11 +181,13 @@ The `name` field becomes the toggle button label.
     "title": "Zone name",
     "color": "#0044ff",
     "opacity": 70,
-    "animation": "fire"
+    "animation": "fire",
+    "startTime": 10,
+    "endTime": 40
   }
 }
 ```
-`animation` accepts `"fire"` or `"wave"`. When an animation is active the polygon fill is hidden and replaced by the animation.
+`animation` accepts `"fire"` (particle effect) or `"wave"` (animated water mesh) — polygons only. When an animation is active the polygon fill is hidden and replaced by the animation. `startTime`/`endTime` work for all polygon types (including fire and wave) in playback files.
 
 **LineString**
 ```json
@@ -200,6 +203,37 @@ The `name` field becomes the toggle button label.
 }
 ```
 A tall `lineheight` relative to `linewidth` renders as a vertical wall; otherwise the line is a flat ribbon on the terrain.
+
+**LineString — moving model (playback)**
+```json
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [ [lng,lat], [lng,lat,altMetres], ... ]
+  },
+  "properties": {
+    "animation": "move",
+    "3dmodel": "ship.glb",
+    "modelscale": 1.5,
+    "modelrotate": 0,
+    "speed": 0.1,
+    "title": "MS Nordstjernen",
+    "color": "#ffcc00",
+    "startTime": 0,
+    "endTime": 60
+  }
+}
+```
+Add a third coordinate value (metres above sea level) for flying models; omit it for surface-draped models (ships, cars). `title` creates a floating label that follows the model; `color` sets its colour.
+
+**Playback-only Point animations**
+```json
+{ "properties": { "animation": "justaudio",        "audio": "narration.mp3", "startTime": 0 } }
+{ "properties": { "animation": "projection-photo",  "image": "slide.jpg",    "startTime": 10, "endTime": 25 } }
+{ "properties": { "animation": "projection-video",  "video": "flyover.mp4",  "startTime": 30 } }
+```
+These use Point geometry (coordinates ignored). `justaudio` plays an audio file; `projection-photo` and `projection-video` fill all four projection walls.
 
 ---
 
@@ -265,10 +299,15 @@ src/
 │   ├── GeoJSONPointLayer.ts         # pins, GLB models, click-to-info
 │   ├── GeoJSONPolygonLayer.ts       # filled polygons, fire, wave
 │   ├── GeoJSONLineLayer.ts          # road/wall ribbons with labels
+│   ├── GeoJSONMoveLayer.ts          # playback: GLB model travelling a path
+│   ├── GeoJSONAudioLayer.ts         # playback: timed audio cues (justaudio)
+│   ├── GeoJSONProjectionLayer.ts    # playback: timed wall projections (photo/video)
+│   ├── PlaybackController.ts        # play/pause/restart state + elapsed time
+│   ├── playbackTiming.ts            # registerTimedVisibility helper
 │   ├── BoatLayer.ts                 # live AIS vessel models + click-to-info
 │   ├── WikimediaLayer.ts            # geotagged photo icons + click-to-show
 │   ├── ToggleButtons.ts             # 3D toggle buttons around table edge
-│   ├── ProjectionWalls.ts           # info display panels (text + image)
+│   ├── ProjectionWalls.ts           # info display panels (text + image + video)
 │   ├── Table.ts                     # physical table mesh
 │   ├── Room.ts                      # room environment
 │   └── billboardUtils.ts            # camera-facing label plane helper
@@ -306,7 +345,7 @@ Contributions are welcome. Open an issue to discuss before starting:
 - **Avatars & multi-user** — shared presence in the same geographic space, with avatar representation and synchronised layer toggles
 - ~~**Video projection** — play video content on the projection walls in the scene, alongside images and text~~
 - **Live data integration (continuous)** — connect to external APIs to stream real-time data (sensor feeds, live ocean data, ~~boat traffic~~, etc.)
-- **Spatial narrative engine** — a GeoJSON-driven playback system that turns a FeatureCollection into a timed, audio-visual presentation. A scene that plays out like a guided spatial story, fully authored in GeoJSON with no timeline editor or video tooling required.
+- ~~**Spatial narrative engine** — a GeoJSON-driven playback system that turns a FeatureCollection into a timed, audio-visual presentation. A scene that plays out like a guided spatial story, fully authored in GeoJSON with no timeline editor or video tooling required~~
 - **CMS / API layer** — a backend content and data management layer, enabling organisations to publish, version, and serve geospatial datasets directly to the platform (Sanity.io? Pocketbase?)
 
 ---

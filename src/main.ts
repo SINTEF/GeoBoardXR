@@ -19,7 +19,7 @@ import { createRoadLayer } from "./scene/RoadLayer";
 import { createBuildingLayer } from "./scene/BuildingLayer";
 import { loadOSMPlaces } from "./data/loaders/osmPlaceLoader";
 import { createPlaceLabels } from "./scene/PlaceLabels";
-import { createToggleButtons } from "./scene/ToggleButtons";
+import { createToggleButtons, type ToggleLayer } from "./scene/ToggleButtons";
 import { buildGeometry } from "./data/TerrainBuilder";
 import { initXR } from "./xr/XRManager";
 import geojsonFiles from "virtual:geojson-manifest";
@@ -27,6 +27,10 @@ import { loadGeoJSONFeatures } from "./data/loaders/geojsonLoader";
 import { createGeoJSONPointLayer, type PinState } from "./scene/GeoJSONPointLayer";
 import { createGeoJSONPolygonLayer } from "./scene/GeoJSONPolygonLayer";
 import { createGeoJSONLineLayer } from "./scene/GeoJSONLineLayer";
+import { createGeoJSONMoveLayer } from "./scene/GeoJSONMoveLayer";
+import { createGeoJSONAudioLayer } from "./scene/GeoJSONAudioLayer";
+import { createGeoJSONProjectionLayer } from "./scene/GeoJSONProjectionLayer";
+import { PlaybackController } from "./scene/PlaybackController";
 import { createDebugOverlay } from "./scene/DebugHelpers";
 import { createTable } from "./scene/Table";
 import { createRoom } from "./scene/Room";
@@ -148,7 +152,6 @@ const labelMeshes    = createPlaceLabels(places, terrainMesh, scene, getTerrainY
 const projWalls = createProjectionWalls(scene, { min: minimumWorld, max: maximumWorld });
 const pinState: PinState = { clearSelection: () => {} };
 
-type ToggleLayer = { label: string; meshes: import("@babylonjs/core/Meshes/mesh").Mesh[] };
 const toggleLayers: ToggleLayer[] = [
   { label: "Buildings", meshes: buildingMeshes },
   { label: "Roads",     meshes: roadMeshes     },
@@ -192,14 +195,18 @@ if (COUNTRY === "norway") {
 for (const filename of geojsonFiles) {
   try {
     const data = await loadGeoJSONFeatures(dataUrl(filename));
-    const pointMeshes   = await createGeoJSONPointLayer(data.points,   terrainMesh, scene, getTerrainY, projWalls, pinState);
-    const polygonMeshes = createGeoJSONPolygonLayer(data.polygons, terrainMesh, scene, MESH_SCALE, getTerrainY);
-    const lineMeshes    = createGeoJSONLineLayer(data.lines,    terrainMesh, scene, MESH_SCALE, getTerrainY);
-    const allMeshes     = [...pointMeshes, ...polygonMeshes, ...lineMeshes];
+    const controller    = data.playback ? new PlaybackController() : undefined;
+    const pointMeshes   = await createGeoJSONPointLayer(data.points,   terrainMesh, scene, getTerrainY, projWalls, pinState, controller);
+    const polygonMeshes = createGeoJSONPolygonLayer(data.polygons, terrainMesh, scene, MESH_SCALE, getTerrainY, controller);
+    const lineMeshes    = createGeoJSONLineLayer(data.lines,    terrainMesh, scene, MESH_SCALE, getTerrainY, controller);
+    const moveMeshes    = await createGeoJSONMoveLayer(data.lines, terrainMesh, scene, MESH_SCALE, getTerrainY, controller);
+    createGeoJSONAudioLayer(data.points, scene, controller);
+    if (controller) createGeoJSONProjectionLayer(data.points, scene, projWalls, controller);
+    const allMeshes     = [...pointMeshes, ...polygonMeshes, ...lineMeshes, ...moveMeshes];
     // Use the GeoJSON collection's "name" property; fall back to the filename without extension
     const fallback = filename.replace(/\.geojson$/i, "");
     const displayLabel = data.name ?? (fallback.charAt(0).toUpperCase() + fallback.slice(1));
-    if (allMeshes.length > 0) toggleLayers.push({ label: displayLabel, meshes: allMeshes });
+    if (allMeshes.length > 0) toggleLayers.push({ label: displayLabel, meshes: allMeshes, playback: controller });
     console.log(`[GeoJSON] "${filename}" (${displayLabel}) → ${allMeshes.length} meshes`);
   } catch (e) {
     console.warn(`[GeoJSON] Failed to load "${filename}":`, e);

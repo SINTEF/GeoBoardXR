@@ -15,7 +15,7 @@ export interface PolygonFeature<P = Record<string, unknown>> {
 
 /** A linestring feature. */
 export interface LineFeature<P = Record<string, unknown>> {
-  nodes: { lat: number; lng: number }[];
+  nodes: { lat: number; lng: number; altitude?: number }[];
   properties: P;
 }
 
@@ -32,6 +32,11 @@ export interface GeoJSONPointProps {
   information?: string;
   image?: string;
   video?: string;
+  animation?: "justaudio" | "projection-photo" | "projection-video";
+  audio?: string;
+  audioVolume?: number;   // 0.0–1.0; default 1.0
+  startTime?: number;
+  endTime?: number;
 }
 
 export interface GeoJSONPolygonProps {
@@ -39,6 +44,8 @@ export interface GeoJSONPolygonProps {
   color?: string;
   opacity?: number;           // 0–100; default 70
   animation?: "fire" | "wave";
+  startTime?: number;
+  endTime?: number;
 }
 
 export interface GeoJSONLineProps {
@@ -46,13 +53,21 @@ export interface GeoJSONLineProps {
   color?: string;
   linewidth?: number;         // metres; default 3
   lineheight?: number;        // metres; default 5
+  animation?: "move";
+  "3dmodel"?: string;         // GLB filename in public/data/
+  modelscale?: number;        // multiplier on auto-fit scale; default 1
+  modelrotate?: number;       // degrees clockwise around vertical axis; default 0
+  speed?: number;             // scene units/sec along path; default 0.1
+  startTime?: number;         // seconds from presentation start
+  endTime?: number;           // seconds; model hidden after this
 }
 
 export interface GeoJSONFeatureCollection {
-  name?:    string;
-  points:   PointFeature<GeoJSONPointProps>[];
-  polygons: PolygonFeature<GeoJSONPolygonProps>[];
-  lines:    LineFeature<GeoJSONLineProps>[];
+  name?:     string;
+  playback?: boolean;
+  points:    PointFeature<GeoJSONPointProps>[];
+  polygons:  PolygonFeature<GeoJSONPolygonProps>[];
+  lines:     LineFeature<GeoJSONLineProps>[];
 }
 
 /**
@@ -65,7 +80,7 @@ export async function loadGeoJSONFeatures(url: string): Promise<GeoJSONFeatureCo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const col = (await res.json()) as { name?: string; features: any[] };
 
-  const result: GeoJSONFeatureCollection = { name: col.name, points: [], polygons: [], lines: [] };
+  const result: GeoJSONFeatureCollection = { name: col.name, playback: (col as any).playback ?? false, points: [], polygons: [], lines: [] };
 
   for (const f of col.features) {
     const geom = f.geometry;
@@ -92,7 +107,7 @@ export async function loadGeoJSONFeatures(url: string): Promise<GeoJSONFeatureCo
       result.polygons.push({ nodes: open, centroid, properties: props });
 
     } else if (geom.type === "LineString") {
-      const nodes = (geom.coordinates as [number, number][]).map(([lng, lat]) => ({ lat, lng }));
+      const nodes = (geom.coordinates as number[][]).map(([lng, lat, alt]) => ({ lat, lng, altitude: alt }));
       if (nodes.length < 2) continue;
       result.lines.push({ nodes, properties: props });
     }

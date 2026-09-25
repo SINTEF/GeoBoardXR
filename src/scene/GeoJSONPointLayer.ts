@@ -12,6 +12,8 @@ import type { PointFeature, GeoJSONPointProps } from "../data/loaders/geojsonLoa
 import { createBillboardLabel } from "./billboardUtils";
 import type { ProjectionWalls } from "./ProjectionWalls";
 import { dataUrl } from "../utils";
+import type { PlaybackController } from "./PlaybackController";
+import { registerTimedVisibility } from "./playbackTiming";
 
 const PIN_HEIGHT = 0.15;
 const HEAD_NORMAL = PIN_HEIGHT * 0.25;  // bubblehead diameter for plain points
@@ -47,6 +49,7 @@ export async function createGeoJSONPointLayer(
   getTerrainY: (lat: number, lng: number) => number,
   projWalls: ProjectionWalls,
   pinState: PinState,
+  controller?: PlaybackController,
 ): Promise<Mesh[]> {
   const { minimumWorld, maximumWorld } = terrainMesh.groundMesh.getBoundingInfo().boundingBox;
   const meshes: Mesh[] = [];
@@ -56,6 +59,8 @@ export async function createGeoJSONPointLayer(
 
   for (let idx = 0; idx < features.length; idx++) {
     const { position, properties: p } = features[idx];
+    if (p.animation === "justaudio" || p.animation === "projection-photo" || p.animation === "projection-video") continue;
+
     const base = terrainMesh.latLngToScaledWorld({ lat: position.lat, lng: position.lng, altitude: 0 });
 
     if (base.x < minimumWorld.x || base.x > maximumWorld.x ||
@@ -64,6 +69,8 @@ export async function createGeoJSONPointLayer(
     const hasInfo = !!p.information;
     // Infopoints default to green (#23d110); plain points default to yellow
     const color = p.color ? hexToColor3(p.color) : (hasInfo ? hexToColor3("#23d110") : new Color3(1, 0.9, 0));
+    const hasTiming = controller !== undefined && (p.startTime !== undefined || p.endTime !== undefined);
+    const timedMeshes: Mesh[] = [];
     // image/video are only valid when information is also present — per spec
     // Resolve relative paths to public/data/ — absolute URLs are used as-is
     const rawImage = hasInfo ? p.image : undefined;
@@ -118,6 +125,7 @@ export async function createGeoJSONPointLayer(
           glbMeshes = allMeshes.filter((m): m is Mesh => m instanceof Mesh);
           glbMeshes.forEach(m => { m.renderingGroupId = 1; });
           meshes.push(...glbMeshes);
+          if (hasTiming) timedMeshes.push(...glbMeshes);
         }
       } catch (e) {
         console.warn(`[GeoJSON] Failed to load 3dmodel: ${p["3dmodel"]}`, e);
@@ -127,6 +135,7 @@ export async function createGeoJSONPointLayer(
       headMesh.position.set(base.x, terrainY + PIN_HEIGHT, base.z);
       headMesh.isVisible = false;
       meshes.push(headMesh);
+      if (hasTiming) timedMeshes.push(headMesh);
     } else {
       // ---- Default: thin stick + sphere bubblehead ----
       const stick = CreateCylinder(`gj-stick-${idx}`, {
@@ -136,12 +145,14 @@ export async function createGeoJSONPointLayer(
       stick.material = mat;
       stick.renderingGroupId = 2;
       meshes.push(stick);
+      if (hasTiming) timedMeshes.push(stick);
 
       headMesh = CreateSphere(`gj-head-${idx}`, { diameter: headDiam, segments: 6 }, scene);
       headMesh.position.set(base.x, terrainY + PIN_HEIGHT + headDiam / 2, base.z);
       headMesh.material = mat;
       headMesh.renderingGroupId = 2;
       meshes.push(headMesh);
+      if (hasTiming) timedMeshes.push(headMesh);
     }
 
     // ---- Spinning billboard label (always faces camera) ----
@@ -154,6 +165,7 @@ export async function createGeoJSONPointLayer(
       tb.color = `rgb(${Math.round(color.r * 255)},${Math.round(color.g * 255)},${Math.round(color.b * 255)})`;
       tb.fontSize = 48;
       meshes.push(lp);
+      if (hasTiming) timedMeshes.push(lp);
     }
 
     // ---- Interaction: click toggles info on projection walls ----
@@ -199,6 +211,10 @@ export async function createGeoJSONPointLayer(
         m.actionManager = new ActionManager(scene);
         m.actionManager.registerAction(new ExecuteCodeAction(ActionManager.OnPickTrigger, onPick));
       }
+    }
+
+    if (hasTiming && timedMeshes.length > 0) {
+      registerTimedVisibility(timedMeshes, p.startTime ?? 0, p.endTime, controller!, scene);
     }
   }
 

@@ -28,7 +28,8 @@
   h2.point   { background: #e67e22; }
   h2.polygon { background: #27ae60; }
   h2.line    { background: #2980b9; }
-  h2.general { background: #8e44ad; }
+  h2.general   { background: #8e44ad; }
+  h2.playback  { background: #0e7490; }
 
   h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 .4rem; color: #11112a; }
 
@@ -112,6 +113,18 @@
 }</pre>
 
   <p>The optional top-level <code>"name"</code> field becomes the toggle button label. If omitted, the filename (without <code>.geojson</code>) is used instead. Restart the dev server after adding a new file.</p>
+
+  <h3>Playback file</h3>
+  <p>A playback file is its own standalone <code>.geojson</code> file placed in <code>public/data/</code> alongside any regular layer files. It gets its own toggle button in the VR menu — just like a normal layer — but with two extra circular buttons above it: <strong>▶ / ⏸</strong> to play/pause and <strong>↺</strong> to restart from the beginning. Regular layers and playback layers are independent; any number can coexist in the same session.</p>
+  <p>Add <code>"playback": true</code> at the top level of the file to enable this mode. All <code>startTime</code> / <code>endTime</code> values in the file are relative to the moment the user presses Play.</p>
+  <p><strong>Any feature type</strong> — Point (pins), LineString, Polygon (including <code>fire</code> and <code>wave</code> polygon animations) — can carry <code>startTime</code> and/or <code>endTime</code> inside a playback file. The feature is hidden before playback starts, appears at <code>startTime</code>, and vanishes at <code>endTime</code>. For <code>fire</code> and <code>wave</code> polygons, the particles / wave also pause when the timing window closes. Features with no timing properties are always visible once the layer is toggled on. Playback-exclusive animations (<code>move</code>, <code>justaudio</code>, <code>projection-photo</code>, <code>projection-video</code>) only work in playback files.</p>
+
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"FeatureCollection"</span>,
+  <span class="key">"name"</span>: <span class="str">"My Presentation"</span>,
+  <span class="key">"playback"</span>: <span class="kw">true</span>,
+  <span class="key">"features"</span>: [ <span class="cmt">/* ... */</span> ]
+}</pre>
 
   <hr class="divider">
 
@@ -236,6 +249,107 @@
 
   <hr class="divider">
 
+  <!-- ------------------------------------------------------------------ PLAYBACK POINT ANIMATIONS -->
+  <h2 class="playback">Playback-only Point animations</h2>
+
+  <p>These features use a Point geometry but their <strong>coordinates are ignored</strong> — place them anywhere valid (e.g. the centre of your map). They only activate inside a file with <code>"playback": true</code>. All share the same timing properties:</p>
+
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr>
+      <td><code>startTime</code> <span class="tag opt">optional</span></td>
+      <td>number (seconds)</td>
+      <td><code>0</code></td>
+      <td>Seconds after the user presses Play when the animation activates.</td>
+    </tr>
+    <tr>
+      <td><code>endTime</code> <span class="tag opt">optional</span></td>
+      <td>number (seconds)</td>
+      <td>—</td>
+      <td>Seconds after Play when the animation stops. If omitted the animation runs until the source ends naturally.</td>
+    </tr>
+  </table>
+
+  <h3><code>animation: "justaudio"</code></h3>
+  <p>Plays an audio file (narration, ambient sound, etc.) at the given time. Multiple <code>justaudio</code> features in the same file play independently and can overlap.</p>
+
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr>
+      <td><code>audio</code> <span class="tag req">required</span></td>
+      <td>string (filename)</td>
+      <td>—</td>
+      <td>MP3/WAV/OGG file in <code>public/data/</code>.</td>
+    </tr>
+    <tr>
+      <td><code>audioVolume</code> <span class="tag opt">optional</span></td>
+      <td>number 0.0–1.0</td>
+      <td><code>1.0</code></td>
+      <td>Playback volume.</td>
+    </tr>
+  </table>
+
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.402</span>, <span class="num">68.693</span>] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"animation"</span>: <span class="str">"justaudio"</span>,
+    <span class="key">"audio"</span>: <span class="str">"narration.mp3"</span>,
+    <span class="key">"audioVolume"</span>: <span class="num">0.8</span>,
+    <span class="key">"startTime"</span>: <span class="num">0</span>
+  }
+}</pre>
+
+  <h3><code>animation: "projection-photo"</code></h3>
+  <p>Fills all four projection walls with an image between <code>startTime</code> and <code>endTime</code>. Walls turn off when the window ends or the presentation is restarted.</p>
+
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr>
+      <td><code>image</code> <span class="tag req">required</span></td>
+      <td>string (filename or URL)</td>
+      <td>—</td>
+      <td>Image file in <code>public/data/</code>. JPG, PNG, WebP, GIF, SVG all work.</td>
+    </tr>
+  </table>
+
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.402</span>, <span class="num">68.693</span>] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"animation"</span>: <span class="str">"projection-photo"</span>,
+    <span class="key">"image"</span>: <span class="str">"overview.jpg"</span>,
+    <span class="key">"startTime"</span>: <span class="num">10</span>,
+    <span class="key">"endTime"</span>: <span class="num">20</span>
+  }
+}</pre>
+
+  <h3><code>animation: "projection-video"</code></h3>
+  <p>Fills all four projection walls with a video, autoplaying immediately with no user controls. The video pauses when the presentation is paused and resumes when it resumes. Walls turn off at <code>endTime</code> or when the presentation is restarted.</p>
+
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr>
+      <td><code>video</code> <span class="tag req">required</span></td>
+      <td>string (filename)</td>
+      <td>—</td>
+      <td>MP4 file in <code>public/data/</code>.</td>
+    </tr>
+  </table>
+
+  <pre>{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: { <span class="key">"type"</span>: <span class="str">"Point"</span>, <span class="key">"coordinates"</span>: [<span class="num">15.402</span>, <span class="num">68.693</span>] },
+  <span class="key">"properties"</span>: {
+    <span class="key">"animation"</span>: <span class="str">"projection-video"</span>,
+    <span class="key">"video"</span>: <span class="str">"flyover.mp4"</span>,
+    <span class="key">"startTime"</span>: <span class="num">25</span>,
+    <span class="key">"endTime"</span>: <span class="num">45</span>
+  }
+}</pre>
+
+  <hr class="divider">
+
   <!-- ------------------------------------------------------------------ POLYGON -->
   <h2 class="polygon">Polygon — areas &amp; zones</h2>
 
@@ -287,8 +401,21 @@
       <td>—</td>
       <td>
         <strong>fire</strong> — dense particle effect covering the polygon footprint at terrain level. The flat polygon is hidden; particles are the entire visual.<br>
-        <strong>wave</strong> — animated 3-D wave mesh (sine-wave vertex displacement). Use a blue <code>color</code> for a sea-water look. The flat polygon is hidden.
+        <strong>wave</strong> — animated 3-D wave mesh (sine-wave vertex displacement). Use a blue <code>color</code> for a sea-water look. The flat polygon is hidden.<br>
+        Both animations work in regular files (always on) and in playback files (use <code>startTime</code>/<code>endTime</code> to show/hide them during a presentation).
       </td>
+    </tr>
+    <tr>
+      <td><code>startTime</code> <span class="tag opt">optional</span></td>
+      <td>number (seconds)</td>
+      <td><code>0</code></td>
+      <td>Seconds after Play when the polygon (or its animation) appears. Playback files only.</td>
+    </tr>
+    <tr>
+      <td><code>endTime</code> <span class="tag opt">optional</span></td>
+      <td>number (seconds)</td>
+      <td>—</td>
+      <td>Seconds after Play when the polygon (or its animation) vanishes. Playback files only.</td>
     </tr>
   </table>
 
@@ -375,7 +502,63 @@
         Height of the ribbon in metres. When <code>lineheight</code> is more than 3× <code>linewidth / 2</code>, the ribbon is rendered as a <strong>vertical wall</strong> instead of a flat road-like surface. Use large values (e.g. <code>30</code>–<code>100</code>) for fence/wall effects.
       </td>
     </tr>
+    <tr>
+      <td><code>animation</code> <span class="tag opt">optional</span></td>
+      <td><code>"move"</code></td>
+      <td>—</td>
+      <td>Animates a 3-D GLB model travelling along the LineString path. No ribbon is drawn — the line acts purely as a path. Requires <code>3dmodel</code>. Works in regular files (autoplays) and in playback files (respects <code>startTime</code> / <code>endTime</code>).</td>
+    </tr>
+    <tr>
+      <td><code>3dmodel</code> <span class="tag opt">optional</span></td>
+      <td>string (filename)</td>
+      <td>—</td>
+      <td>Required when <code>animation: "move"</code>. Filename of a <code>.glb</code> in <code>public/data/</code>.</td>
+    </tr>
+    <tr>
+      <td><code>modelscale</code> <span class="tag opt">optional</span></td>
+      <td>number (multiplier)</td>
+      <td><code>1</code></td>
+      <td>Scale multiplier on top of the automatic size-fitting. Only with <code>animation: "move"</code>.</td>
+    </tr>
+    <tr>
+      <td><code>modelrotate</code> <span class="tag opt">optional</span></td>
+      <td>number (degrees)</td>
+      <td><code>0</code></td>
+      <td>Additional yaw offset added on top of the path-following heading. Clockwise, compass-style. Only with <code>animation: "move"</code>.</td>
+    </tr>
+    <tr>
+      <td><code>speed</code> <span class="tag opt">optional</span></td>
+      <td>number (scene units/sec)</td>
+      <td><code>0.1</code></td>
+      <td>How fast the model travels along the path. Only with <code>animation: "move"</code>.</td>
+    </tr>
+    <tr>
+      <td><code>title</code> <span class="tag opt">optional</span> <em>(move)</em></td>
+      <td>string</td>
+      <td>—</td>
+      <td>Floating billboard label that follows the moving model. For non-move lines, the label is placed at the path midpoint instead.</td>
+    </tr>
+    <tr>
+      <td><code>color</code> <span class="tag opt">optional</span> <em>(move)</em></td>
+      <td>hex string</td>
+      <td><code>#ffffff</code></td>
+      <td>Colour of the <code>title</code> label on a moving model. Only has an effect when both <code>animation: "move"</code> and <code>title</code> are set.</td>
+    </tr>
+    <tr>
+      <td><code>startTime</code> <span class="tag opt">optional</span></td>
+      <td>number (seconds)</td>
+      <td><code>0</code></td>
+      <td>Seconds after Play when the model becomes visible and starts moving. Playback files only.</td>
+    </tr>
+    <tr>
+      <td><code>endTime</code> <span class="tag opt">optional</span></td>
+      <td>number (seconds)</td>
+      <td>—</td>
+      <td>Seconds after Play when the model is hidden. Playback files only.</td>
+    </tr>
   </table>
+
+  <div class="note">ℹ️ <strong>Altitude for flying models:</strong> add a third coordinate value (metres above sea level) to each position to give a model elevation — e.g. <code>[15.40, 68.69, 500]</code>. Without a third value the model is draped on the terrain surface (ships, cars). With it the model flies at the given altitude (aircraft).</div>
 
   <h3>Examples</h3>
   <pre><span class="cmt">// Flat road-like route</span>
@@ -398,6 +581,48 @@
     <span class="key">"color"</span>: <span class="str">"#ff9900"</span>,
     <span class="key">"linewidth"</span>: <span class="num">2</span>,
     <span class="key">"lineheight"</span>: <span class="num">40</span>
+  }
+}
+
+<span class="cmt">// Ship following a surface route (playback file)</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: {
+    <span class="key">"type"</span>: <span class="str">"LineString"</span>,
+    <span class="key">"coordinates"</span>: [
+      [<span class="num">15.447</span>, <span class="num">68.662</span>],
+      [<span class="num">15.437</span>, <span class="num">68.694</span>],
+      [<span class="num">15.415</span>, <span class="num">68.752</span>]
+    ]
+  },
+  <span class="key">"properties"</span>: {
+    <span class="key">"animation"</span>: <span class="str">"move"</span>,
+    <span class="key">"3dmodel"</span>: <span class="str">"ship.glb"</span>,
+    <span class="key">"modelscale"</span>: <span class="num">1</span>,
+    <span class="key">"modelrotate"</span>: <span class="num">0</span>,
+    <span class="key">"speed"</span>: <span class="num">0.1</span>,
+    <span class="key">"startTime"</span>: <span class="num">0</span>,
+    <span class="key">"endTime"</span>: <span class="num">60</span>
+  }
+}
+
+<span class="cmt">// Airplane following an elevated route — third coordinate is altitude in metres</span>
+{
+  <span class="key">"type"</span>: <span class="str">"Feature"</span>,
+  <span class="key">"geometry"</span>: {
+    <span class="key">"type"</span>: <span class="str">"LineString"</span>,
+    <span class="key">"coordinates"</span>: [
+      [<span class="num">15.280</span>, <span class="num">68.655</span>, <span class="num">400</span>],
+      [<span class="num">15.400</span>, <span class="num">68.695</span>, <span class="num">480</span>],
+      [<span class="num">15.530</span>, <span class="num">68.730</span>, <span class="num">550</span>]
+    ]
+  },
+  <span class="key">"properties"</span>: {
+    <span class="key">"animation"</span>: <span class="str">"move"</span>,
+    <span class="key">"3dmodel"</span>: <span class="str">"airplane.glb"</span>,
+    <span class="key">"speed"</span>: <span class="num">0.3</span>,
+    <span class="key">"startTime"</span>: <span class="num">5</span>,
+    <span class="key">"endTime"</span>: <span class="num">60</span>
   }
 }</pre>
 
@@ -481,18 +706,27 @@
 
   <table>
     <tr><th>Property</th><th>Applies to</th><th>Type &amp; values</th></tr>
-    <tr><td><code>title</code></td>        <td>All</td>           <td>Any string</td></tr>
-    <tr><td><code>color</code></td>        <td>All</td>           <td>Hex colour, e.g. <code>"#ff4400"</code></td></tr>
-    <tr><td><code>information</code></td>  <td>Point</td>         <td>String — enables click interaction</td></tr>
-    <tr><td><code>image</code></td>        <td>Point</td>         <td>Filename or URL — requires <code>information</code>; ignored if <code>video</code> is set</td></tr>
-    <tr><td><code>video</code></td>        <td>Point</td>         <td>MP4 filename in <code>public/data/</code> — requires <code>information</code>; takes priority over <code>image</code></td></tr>
-    <tr><td><code>3dmodel</code></td>       <td>Point</td>         <td>Filename of a <code>.glb</code> in <code>public/data/</code></td></tr>
-    <tr><td><code>modelscale</code></td>   <td>Point</td>         <td>Number multiplier, default <code>1</code> — only with <code>3dmodel</code></td></tr>
-    <tr><td><code>modelrotate</code></td>  <td>Point</td>         <td>Degrees clockwise (compass), default <code>0</code> — only with <code>3dmodel</code></td></tr>
-    <tr><td><code>opacity</code></td>      <td>Polygon</td>       <td>Integer 0–100 (default <code>70</code>)</td></tr>
-    <tr><td><code>animation</code></td>    <td>Polygon</td>       <td><code>"fire"</code> or <code>"wave"</code></td></tr>
-    <tr><td><code>linewidth</code></td>    <td>LineString</td>    <td>Metres, default <code>3</code></td></tr>
-    <tr><td><code>lineheight</code></td>   <td>LineString</td>    <td>Metres, default <code>5</code>. &gt;3× half-width → vertical wall</td></tr>
+    <tr><td><code>title</code></td>             <td>All</td>                          <td>Any string</td></tr>
+    <tr><td><code>color</code></td>             <td>All</td>                          <td>Hex colour, e.g. <code>"#ff4400"</code></td></tr>
+    <tr><td><code>information</code></td>       <td>Point</td>                        <td>String — enables click interaction</td></tr>
+    <tr><td><code>image</code></td>             <td>Point, projection-photo</td>      <td>Filename or URL</td></tr>
+    <tr><td><code>video</code></td>             <td>Point, projection-video</td>      <td>MP4 filename in <code>public/data/</code></td></tr>
+    <tr><td><code>3dmodel</code></td>           <td>Point, LineString (move)</td>     <td>Filename of a <code>.glb</code> in <code>public/data/</code></td></tr>
+    <tr><td><code>modelscale</code></td>        <td>Point, LineString (move)</td>     <td>Number multiplier, default <code>1</code></td></tr>
+    <tr><td><code>modelrotate</code></td>       <td>Point, LineString (move)</td>     <td>Degrees clockwise (compass), default <code>0</code></td></tr>
+    <tr><td><code>opacity</code></td>           <td>Polygon</td>                      <td>Integer 0–100 (default <code>70</code>)</td></tr>
+    <tr><td><code>animation</code></td>         <td>Polygon only</td>                  <td><code>"fire"</code> (particle effect) or <code>"wave"</code> (animated water mesh). Both support <code>startTime</code>/<code>endTime</code> in playback files.</td></tr>
+    <tr><td><code>linewidth</code></td>         <td>LineString</td>                   <td>Metres, default <code>3</code></td></tr>
+    <tr><td><code>lineheight</code></td>        <td>LineString</td>                   <td>Metres, default <code>5</code>. &gt;3× half-width → vertical wall</td></tr>
+    <tr><td><code>animation: "move"</code></td> <td>LineString</td>                   <td>3-D model travels the path. Requires <code>3dmodel</code>.</td></tr>
+    <tr><td><code>speed</code></td>             <td>LineString (move)</td>            <td>Scene units/sec, default <code>0.1</code></td></tr>
+    <tr><td><code>startTime</code></td>         <td>Any feature (playback file)</td>  <td>Seconds after Play when the feature appears, default <code>0</code>. Playback files only.</td></tr>
+    <tr><td><code>endTime</code></td>           <td>Any feature (playback file)</td>  <td>Seconds after Play when the feature vanishes. Playback files only.</td></tr>
+    <tr><td><code>animation: "justaudio"</code></td>          <td>Point (playback)</td> <td>Plays <code>audio</code> file at <code>startTime</code>.</td></tr>
+    <tr><td><code>audio</code></td>             <td>Point (justaudio)</td>            <td>MP3/WAV/OGG filename in <code>public/data/</code></td></tr>
+    <tr><td><code>audioVolume</code></td>       <td>Point (justaudio)</td>            <td>0.0–1.0, default <code>1.0</code></td></tr>
+    <tr><td><code>animation: "projection-photo"</code></td>  <td>Point (playback)</td> <td>Fills all 4 walls with <code>image</code> between <code>startTime</code> and <code>endTime</code>.</td></tr>
+    <tr><td><code>animation: "projection-video"</code></td>  <td>Point (playback)</td> <td>Fills all 4 walls with autoplaying <code>video</code>. Pauses/resumes with the controller.</td></tr>
   </table>
 
 </div>

@@ -11,6 +11,9 @@ export interface ProjectionWalls {
   show(title: string, body: string): void;
   showWithImage(title: string, body: string, imageUrl: string): void;
   showWithVideo(title: string, body: string, videoUrl: string): void;
+  showFullscreenImage(imageUrl: string): void;
+  showFullscreenVideo(videoUrl: string): void;
+  setVideoPaused(paused: boolean): void;
   hide(): void;
 }
 
@@ -286,6 +289,44 @@ export function createProjectionWalls(
         am.registerAction(new ExecuteCodeAction(ActionManager.OnPickTrigger, toggle));
         wallData[i].plane.actionManager = am;
       }
+    },
+    showFullscreenImage(imageUrl: string) {
+      cleanupVideo();
+      for (const { plane } of wallData) plane.setEnabled(true);
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        for (const { ctx, tex } of wallData) { drawImageWall(ctx, img); tex.update(); }
+      };
+      img.src = imageUrl;
+    },
+    showFullscreenVideo(videoUrl: string) {
+      cleanupVideo();
+      const vid = document.createElement("video");
+      vid.src = videoUrl;
+      vid.playsInline = true;
+      vid.preload = "auto";
+      vid.style.display = "none";
+      document.body.appendChild(vid);
+      activeVideo = vid;
+
+      const redraw = () => {
+        for (const { ctx, tex } of wallData) { drawVideoFrame(ctx, vid, false); tex.update(); }
+      };
+
+      for (const { plane } of wallData) plane.setEnabled(true);
+      vid.onloadeddata = () => redraw();
+
+      activeObserver = scene.onBeforeRenderObservable.add(() => {
+        if (!vid.paused) redraw();
+      });
+
+      vid.play().catch(() => {});
+    },
+    setVideoPaused(paused: boolean) {
+      if (!activeVideo) return;
+      if (paused) activeVideo.pause();
+      else activeVideo.play().catch(() => {});
     },
     hide() {
       cleanupVideo();

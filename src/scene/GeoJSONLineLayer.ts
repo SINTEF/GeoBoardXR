@@ -7,6 +7,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { TerrainMesh } from "./TerrainMesh";
 import type { LineFeature, GeoJSONLineProps } from "../data/loaders/geojsonLoader";
 import { createBillboardLabel } from "./billboardUtils";
+import type { PlaybackController } from "./PlaybackController";
+import { registerTimedVisibility } from "./playbackTiming";
 
 // Set to false to restore diffuse+specular lighting on lines.
 const FLAT_SHADING = false;
@@ -26,6 +28,7 @@ export function createGeoJSONLineLayer(
   scene: Scene,
   meshScale: number,
   getTerrainY: (lat: number, lng: number) => number,
+  controller?: PlaybackController,
 ): Mesh[] {
   const meshes: Mesh[] = [];
   const { minimumWorld, maximumWorld } = terrainMesh.groundMesh.getBoundingInfo().boundingBox;
@@ -33,6 +36,8 @@ export function createGeoJSONLineLayer(
   for (let idx = 0; idx < features.length; idx++) {
     const { nodes, properties: p } = features[idx];
     if (nodes.length < 2) continue;
+
+    if (p.animation === "move") continue; // handled by GeoJSONMoveLayer
 
     const mid = nodes[Math.floor(nodes.length / 2)];
     const midWorld = terrainMesh.latLngToScaledWorld({ lat: mid.lat, lng: mid.lng, altitude: 0 });
@@ -81,6 +86,9 @@ export function createGeoJSONLineLayer(
     ribbon.renderingGroupId = 1;
     meshes.push(ribbon);
 
+    const hasTiming = controller !== undefined && (p.startTime !== undefined || p.endTime !== undefined);
+    const timedMeshes: Mesh[] = hasTiming ? [ribbon] : [];
+
     // ---- Label at midpoint node ----
     if (p.title) {
       const mid = worldPts[Math.floor(worldPts.length / 2)];
@@ -94,6 +102,11 @@ export function createGeoJSONLineLayer(
       tb.color = `rgb(${Math.round(color.r * 255)},${Math.round(color.g * 255)},${Math.round(color.b * 255)})`;
       tb.fontSize = 48;
       meshes.push(lp);
+      if (hasTiming) timedMeshes.push(lp);
+    }
+
+    if (hasTiming && timedMeshes.length > 0) {
+      registerTimedVisibility(timedMeshes, p.startTime ?? 0, p.endTime, controller!, scene);
     }
   }
 
