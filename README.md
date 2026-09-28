@@ -10,7 +10,7 @@ Tested on: Brave desktop, Meta Quest 2 and 3.
 
 ## Screenshots & Video
 
-▶ [Watch demo video](https://xrlab.no/geoboardxr/video/)
+▶ [Video log](https://xrlab.no/geoboardxr/video/)
 
 | | |
 |---|---|
@@ -18,7 +18,7 @@ Tested on: Brave desktop, Meta Quest 2 and 3.
 | ![Overview 1](https://xrlab.no/geoboardxr/photo/overview1.png) | ![Overview 2](https://xrlab.no/geoboardxr/photo/overview2.png) |
 | ![Navigation](https://xrlab.no/geoboardxr/photo/navigation.png) | ![Animation](https://xrlab.no/geoboardxr/photo/animation.png) |
 | ![3D model icon](https://xrlab.no/geoboardxr/photo/3dmodelicon.png) | ![Boats LIVE](https://xrlab.no/geoboardxr/photo/boats.png) |
-| ![Photos](https://xrlab.no/geoboardxr/photo/photos.png) | |
+| ![Photos](https://xrlab.no/geoboardxr/photo/photos.png) | ![GeoJSON-driven animations](https://xrlab.no/geoboardxr/photo/animations.png) |
 
 ---
 
@@ -341,12 +341,13 @@ Contributions are welcome. Open an issue to discuss before starting:
 - ~~**Overpass API resilience** — OSM data (buildings, roads, place labels) is fetched from the public `overpass-api.de` endpoint, which has no availability guarantees. Adding fallback rotation across community mirrors (`overpass.kumi.systems`, `overpass.openstreetmap.ru`) would make the first-load experience significantly more reliable~~
 - **AR tuning** — AR mode works via WebXR passthrough but needs calibration for table-scale placement and occlusion on different devices
 - **Bathymetry & ocean terrain** — integrate seafloor elevation data and ocean current / water column datasets as dedicated layers
-- **Fuzzy cognitive maps** — visualise FCM nodes and weighted edges as an interactive 3D graph layer on the terrain
+- **Fuzzy cognitive maps** — visualise FCM nodes and weighted edges as an interactive 3D graph layer on the terrain (see [Sofia Håbrekke's fork](https://github.com/sofiahabrekke/GeoBoardXR) for an implementation)
 - **Avatars & multi-user** — shared presence in the same geographic space, with avatar representation and synchronised layer toggles
 - ~~**Video projection** — play video content on the projection walls in the scene, alongside images and text~~
 - **Live data integration (continuous)** — connect to external APIs to stream real-time data (sensor feeds, live ocean data, ~~boat traffic~~, etc.)
 - ~~**Spatial narrative engine** — a GeoJSON-driven playback system that turns a FeatureCollection into a timed, audio-visual presentation. A scene that plays out like a guided spatial story, fully authored in GeoJSON with no timeline editor or video tooling required~~
 - **CMS / API layer** — a backend content and data management layer, enabling organisations to publish, version, and serve geospatial datasets directly to the platform (Sanity.io? Pocketbase?)
+- **AI-assisted content curation** — use an LLM to help authors generate, summarise, and organise GeoJSON layer content and playback narratives; natural-language querying of geospatial datasets to surface relevant features automatically
 
 ---
 
